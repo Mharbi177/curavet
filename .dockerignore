@@ -1,0 +1,33 @@
+# Docker build-context hygiene.
+#
+# Without this file the app-level `COPY apps/<app> ./apps/<app>` steps copy the
+# host's `node_modules` (pnpm junctions/symlinks created on the developer's
+# machine) over the symlinks that `pnpm install` just created inside the image.
+# Those host links point outside the image, so `tsc`/`vite` fail with
+# "Cannot find module '/app/apps/<app>/node_modules/typescript/bin/tsc'".
+# It also keeps the context small (the pnpm virtual store is hundreds of MB).
+
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+**/coverage
+**/test-results
+**/playwright-report
+**/blob-report
+**/.pnpm-store
+**/*.log
+**/*.tsbuildinfo
+
+# Local/env-only files — containers receive configuration through the compose
+# environment, never from a baked-in .env.
+.env
+.env.*
+!.env.example
+
+# Repository plumbing not needed to build any image.
+.git
+.gitignore
+.github
+docs
+e2e

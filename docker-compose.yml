@@ -1,0 +1,105 @@
+name: curavet
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: curavet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-curavet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-curavet}
+      POSTGRES_DB: ${POSTGRES_DB:-curavet}
+    ports:
+      - '${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - curavet-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-curavet}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: curavet-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+    ports:
+      - '${REDIS_PORT:-6380}:6379'
+    volumes:
+      - curavet-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: curavet-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    ports:
+      - '9091:9090'
+    volumes:
+      - ./infra/prometheus:/etc/prometheus:ro
+      - curavet-prometheus-data:/prometheus
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:9090/-/healthy']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: curavet-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-curavet-admin-2025}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SERVER_ROOT_URL: 'http://localhost:3001'
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: '/etc/grafana/provisioning/dashboards/curavet_api_metrics.json'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+    ports:
+      - '3001:3000'
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - curavet-grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3000/api/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.99.0
+    container_name: curavet-otel-collector
+    restart: unless-stopped
+    command: ['--config=/etc/otel/otel-collector-config.yml']
+    ports:
+      - '4317:4317'
+      - '4318:4318'
+      - '8889:8889'
+    volumes:
+      - ./infra/otel:/etc/otel:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+volumes:
+  curavet-postgres-data:
+  curavet-redis-data:
+  curavet-prometheus-data:
+  curavet-grafana-data:

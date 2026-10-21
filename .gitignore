@@ -1,0 +1,30 @@
+node_modules/
+dist/
+.turbo/
+*.log
+.DS_Store
+
+# Environment and secrets (never commit populated secrets)
+.env
+.env.local
+.env.*.local
+apps/api/.env
+packages/db/.env
+
+# Prisma artifacts that should be generated locally
+packages/db/prisma/migrations/dev/
+packages/db/prisma/*.db
+packages/db/prisma/*.db-journal
+
+# Test, coverage and E2E artifacts
+coverage/
+e2e/test-results/
+e2e/playwright-report/
+e2e/.playwright/
+test-results/
+
+# Editor and OS artifacts
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db

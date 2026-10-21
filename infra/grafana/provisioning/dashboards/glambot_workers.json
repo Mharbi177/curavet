@@ -1,0 +1,107 @@
+{
+  "title": "GlamBot Background Workers & Queue",
+  "uid": "glambot-workers",
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["glambot", "workers", "queue"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Job Processing Throughput (jobs/sec)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(rate(glambot_jobs_processed_total[2m])) by (queue, outcome)",
+          "legendFormat": "{{queue}} - {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Inbound Webhook Events (per sec)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(rate(glambot_webhook_events_total[2m])) by (platform, outcome)",
+          "legendFormat": "{{platform}} ({{outcome}})",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Jobs Processed (All Time)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(glambot_jobs_processed_total)",
+          "legendFormat": "Total Jobs",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Total Webhook Events Received",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(glambot_webhook_events_total)",
+          "legendFormat": "Events",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "AI Interactions by Platform",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(rate(glambot_ai_interactions_total[2m])) by (outcome)",
+          "legendFormat": "AI {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

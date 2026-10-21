@@ -1,0 +1,16 @@
+{
+  "services": [
+    { "nameEn": "Gel Manicure",           "nameAr": "منيكيير جل",         "durationMinutes": 45,  "bufferMinutes": 15, "price": 120 },
+    { "nameEn": "Acrylic Full Set",        "nameAr": "أظافر أكريليك",       "durationMinutes": 90,  "bufferMinutes": 15, "price": 350 },
+    { "nameEn": "Hair Blowdry & Style",    "nameAr": "سشوار شعر",           "durationMinutes": 60,  "bufferMinutes": 15, "price": 180 },
+    { "nameEn": "Deep Conditioning Mask", "nameAr": "قناع ترطيب عميق",    "durationMinutes": 45,  "bufferMinutes": 10, "price": 200 },
+    { "nameEn": "Eyebrow Shaping",         "nameAr": "تنظيف الحواجب",      "durationMinutes": 30,  "bufferMinutes": 10, "price": 80 },
+    { "nameEn": "Bridal Makeup Package",   "nameAr": "مكياج عرائس",        "durationMinutes": 120, "bufferMinutes": 20, "price": 800 }
+  ],
+  "upsell": {
+    "triggerIndex": 0,
+    "suggestIndex": 4,
+    "messageEn": "Add eyebrow shaping for just AED 80?",
+    "messageAr": "هل تودين إضافة تنظيف الحواجب مقابل 80 درهم فقط؟"
+  }
+}

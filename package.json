@@ -1,0 +1,34 @@
+{
+  "name": "curavet-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:coverage": "pnpm --filter api test:coverage",
+    "smoke": "pnpm --filter api smoke",
+    "routes": "pnpm --filter api routes",
+    "e2e": "pnpm --filter e2e test",
+    "e2e:install": "pnpm --filter e2e install-browsers",
+    "db:generate": "pnpm --filter @curavet/db exec prisma generate",
+    "db:validate": "pnpm --filter @curavet/db exec prisma validate",
+    "db:migrate": "pnpm --filter @curavet/db exec prisma migrate dev",
+    "db:deploy": "pnpm --filter @curavet/db exec prisma migrate deploy",
+    "db:studio": "pnpm --filter @curavet/db exec prisma studio",
+    "seed": "pnpm --filter api seed",
+    "widget:build": "pnpm --filter @curavet/widget build",
+    "verify": "pnpm typecheck && pnpm test && pnpm db:validate"
+  },
+  "packageManager": "pnpm@10.34.5",
+  "pnpm": {
+    "overrides": {
+      "zod": "^4.6.5"
+    }
+  },
+  "devDependencies": {
+    "turbo": "^2.11.4"
+  }
+}

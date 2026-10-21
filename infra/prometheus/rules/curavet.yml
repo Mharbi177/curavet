@@ -1,0 +1,22 @@
+groups:
+  - name: curavet.api
+    rules:
+      - alert: ApiHighErrorRate
+        expr: rate(http_requests_total{service="curavet-api", status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          product: curavet
+        annotations:
+          summary: "CuraVet API high 5xx error rate"
+          description: "Error rate above 5% for 2 minutes on {{ $labels.instance }}"
+
+      - alert: ApiHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service="curavet-api"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          product: curavet
+        annotations:
+          summary: "CuraVet API p95 latency above 2s"
+          description: "p95 latency is high on {{ $labels.instance }}"

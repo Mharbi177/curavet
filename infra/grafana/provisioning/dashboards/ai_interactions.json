@@ -1,0 +1,110 @@
+{
+  "title": "AI & Client Interactions",
+  "uid": "ai_client_interactions",
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["glambot", "ai", "clients"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "AI Interactions Rate (per second)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(rate(glambot_ai_interactions_total[2m])) by (outcome)",
+          "legendFormat": "{{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "AI Processing Duration (Seconds)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(glambot_ai_interaction_duration_seconds_bucket[2m])) by (le))",
+          "legendFormat": "P95 Duration",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(glambot_ai_interaction_duration_seconds_bucket[2m])) by (le))",
+          "legendFormat": "Median Duration",
+          "range": true,
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Inbound Messages Rate (per second)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(rate(glambot_webhook_events_total[2m])) by (platform, outcome)",
+          "legendFormat": "{{platform}} - {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Total Active Client Conversations",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 20 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(glambot_active_conversations)",
+          "legendFormat": "Active",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "title": "GlamBot System & HTTP Metrics",
+  "uid": "glambot-api-metrics",
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["glambot", "http", "system"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP Traffic (Requests / Sec)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(rate(glambot_http_requests_total[2m])) by (status_code)",
+          "legendFormat": "HTTP {{status_code}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP Latency (Seconds)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "histogram_quantile(0.99, sum(rate(glambot_http_request_duration_seconds_bucket[2m])) by (le))",
+          "legendFormat": "p99 Latency",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(glambot_http_request_duration_seconds_bucket[2m])) by (le))",
+          "legendFormat": "Median Latency",
+          "range": true,
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total HTTP Requests (All Time)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(glambot_http_requests_total)",
+          "legendFormat": "Total",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Error Rate (429 + 5xx)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.05 },
+              { "color": "red", "value": 0.1 }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "sum(rate(glambot_http_requests_total{status_code=~\"4..|5..\"}[5m])) / sum(rate(glambot_http_requests_total[5m]))",
+          "legendFormat": "Error Rate",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Requests by Route (Top Routes)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "topk(5, sum(rate(glambot_http_requests_total{status_code=\"200\"}[2m])) by (route))",
+          "legendFormat": "{{route}}",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Node.js Heap Memory Usage",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "glambot_nodejs_heap_size_used_bytes",
+          "legendFormat": "Heap Used",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "glambot_nodejs_heap_size_total_bytes",
+          "legendFormat": "Heap Total",
+          "range": true,
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Event Loop Lag (seconds)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "glambot-prometheus" },
+          "expr": "glambot_nodejs_eventloop_lag_p99_seconds",
+          "legendFormat": "Event Loop Lag p99",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

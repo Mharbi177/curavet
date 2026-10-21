@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Phase 1: Semantic Design Tokens ── */
+    --color-brand: 262 80% 50%;         /* Deep Violet */
+    --color-brand-strong: 262 80% 40%;
+    --color-accent: 43 100% 50%;        /* Gold */
+    --color-background: 0 0% 99%;       /* Ultra clean white-ish */
+    --color-surface: 0 0% 100%;
+    --color-surface-elevated: 0 0% 100%;
+    
+    --color-text-primary: 222 47% 11%;
+    --color-text-secondary: 215 16% 47%;
+    --color-text-muted: 215 16% 65%;
+    --color-border: 220 13% 91%;
+    
+    --color-success: 142 71% 45%;
+    --color-warning: 38 92% 50%;
+    --color-danger: 348 83% 47%;
+    --color-info: 217 91% 60%;
+
+    /* Semantic States */
+    --state-ai: 262 80% 50%;
+    --state-human: 217 91% 60%;
+
+    /* ── Legacy Fallbacks (To prevent instant breakage) ── */
+    --background: var(--color-background);
+    --foreground: var(--color-text-primary);
+
+    --card: var(--color-surface);
+    --card-foreground: var(--color-text-primary);
+
+    --popover: var(--color-surface-elevated);
+    --popover-foreground: var(--color-text-primary);
+
+    /* ── Brand / Primary: Professional Slate-Indigo ── */
+    --primary: 234 89% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* ── Secondary ── */
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* ── Muted ── */
+    --muted: 220 14% 94%;
+    --muted-foreground: 215 16% 47%;
+
+    /* ── Accent ── */
+    --accent: 220 14% 94%;
+    --accent-foreground: 222 47% 11%;
+
+    /* ── Destructive ── */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* ── Borders & Inputs ── */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 234 89% 60%;
+
+    --radius: 0.625rem;
+
+    /* ── Sidebar (dark) ── */
+    --sidebar-bg: 222 47% 10%;
+    --sidebar-fg: 215 20% 65%;
+    --sidebar-fg-active: 0 0% 100%;
+    --sidebar-active-bg: 234 89% 60%;
+    --sidebar-hover-bg: 222 40% 16%;
+    --sidebar-border: 222 30% 18%;
+    --sidebar-logo-ring: 234 89% 55%;
+  }
+
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 234 89% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 234 89% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1, 'cv02' 1, 'cv03' 1, 'cv04' 1;
+  }
+}
+
+/* ── Sidebar skin using CSS vars ── */
+@layer components {
+  .sidebar-bg       { background: hsl(var(--sidebar-bg)); }
+  .sidebar-text     { color: hsl(var(--sidebar-fg)); }
+  .sidebar-border   { border-color: hsl(var(--sidebar-border)); }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 rounded-lg text-sm font-medium transition-all duration-150 min-h-[42px];
+    color: hsl(var(--sidebar-fg));
+  }
+  .sidebar-item:hover {
+    background: hsl(var(--sidebar-hover-bg));
+    color: hsl(var(--sidebar-fg-active));
+  }
+  .sidebar-item.active {
+    background: hsl(var(--sidebar-active-bg));
+    color: hsl(var(--sidebar-fg-active));
+    box-shadow: 0 1px 8px hsl(var(--sidebar-active-bg) / 0.45);
+  }
+
+  /* ── Stat / Metric Cards ── */
+  .stat-card {
+    @apply bg-card rounded-xl border border-border p-5 flex flex-col gap-1 transition-shadow hover:shadow-md;
+  }
+
+  /* ── Schedule / Timeline chip colors ── */
+  .schedule-chip {
+    @apply rounded-lg px-2 py-1 text-xs font-medium truncate;
+  }
+  .chip-indigo  { @apply bg-indigo-100 text-indigo-800 border border-indigo-200; }
+  .chip-sky     { @apply bg-sky-100 text-sky-800 border border-sky-200; }
+  .chip-emerald { @apply bg-emerald-100 text-emerald-800 border border-emerald-200; }
+  .chip-amber   { @apply bg-amber-100 text-amber-800 border border-amber-200; }
+  .chip-slate   { @apply bg-slate-100 text-slate-600 border border-slate-200; }
+  .chip-rose    { @apply bg-rose-100 text-rose-800 border border-rose-200; }
+}
+
+/* ── Scrollbar ── */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 2px;
+  }
+
+  /* glass morphism helper */
+  .glass {
+    background: hsl(0 0% 100% / 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(0 0% 100% / 0.3);
+  }
+}

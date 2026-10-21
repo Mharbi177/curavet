@@ -1,0 +1,386 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String?
+  email        String    @unique
+  passwordHash String
+  name         String?
+  role         String    @default("salon_admin")
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model Tenant {
+  id                 String              @id @default(uuid())
+  name               String
+  slug               String              @unique
+  plan               String              @default("starter")
+  paddleCustomerId   String?
+  timezone           String              @default("Asia/Dubai")
+  languageDefault    String              @default("en")
+  isActive           Boolean             @default(true)
+  aiProvider         String              @default("auto")
+  aiModel            String?
+  aiTemperature      Float               @default(0.2)
+  supportedLanguages String[]            @default(["ar", "en"])
+  customDomain       String?             @unique
+  brandName          String?
+  logoUrl            String?
+  primaryColor       String?             @default("#ec4899")
+  welcomeMessage     String?
+  webWidgetKey       String?             @unique
+  webWidgetEnabled   Boolean             @default(true)
+  stripeAccountId    String?
+  remindersEnabled   Boolean             @default(true)
+  reviewsEnabled     Boolean             @default(true)
+  upsellEnabled      Boolean             @default(false)
+  waitlistEnabled    Boolean             @default(true)
+  emergencyPhone     String?             @default("+1-800-VET-EMRG")
+  clinicType         String?             @default("small_animal")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  users              User[]
+  integrations       TenantIntegration[]
+  services           Service[]
+  staff              Staff[]
+  clients            Client[]
+  bookings           Booking[]
+  conversations      Conversation[]
+  usageRecords       UsageRecord[]
+  broadcasts         Broadcast[]
+  reviews            Review[]
+  waitlistEntries    WaitlistEntry[]
+  payments           Payment[]
+  upsellRules        UpsellRule[]
+  pets               Pet[]
+  GiftCard           GiftCard[]
+
+  @@index([isActive])
+}
+
+model TenantIntegration {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  provider             String
+  platform             String
+  externalAccountId    String?
+  encryptedCredentials String?  @db.Text
+  status               String   @default("pending")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, platform, externalAccountId])
+  @@index([externalAccountId, platform, status])
+}
+
+model Service {
+  id              String          @id @default(uuid())
+  tenantId        String
+  nameAr          String
+  nameEn          String
+  descriptionAr   String?
+  descriptionEn   String?
+  category        String?
+  durationMinutes Int
+  bufferMinutes   Int             @default(0)
+  price           Float
+  currency        String          @default("AED")
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings        Booking[]
+  waitlistEntries WaitlistEntry[]
+
+  @@index([tenantId, isActive])
+}
+
+model Staff {
+  id               String          @id @default(uuid())
+  tenantId         String
+  name             String
+  email            String?
+  phone            String?
+  workingHoursJson String
+  skillsJson       String
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings         Booking[]
+  waitlistEntries  WaitlistEntry[]
+
+  @@index([tenantId, isActive])
+}
+
+model Client {
+  id                 String          @id @default(uuid())
+  tenantId           String
+  phone              String?
+  name               String?
+  instagramId        String?
+  webSessionId       String?
+  languagePreference String          @default("en")
+  isVip              Boolean         @default(false)
+  notes              String?
+  firstContactAt     DateTime        @default(now())
+  lastContactAt      DateTime        @updatedAt
+  tenant             Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings           Booking[]
+  conversations      Conversation[]
+  reviews            Review[]
+  waitlistEntries    WaitlistEntry[]
+  payments           Payment[]
+  GiftCard           GiftCard[]
+  Pet                Pet[]
+
+  @@unique([tenantId, phone])
+  @@unique([tenantId, webSessionId])
+  @@index([tenantId])
+  @@index([tenantId, isVip])
+  @@index([tenantId, lastContactAt])
+}
+
+model Booking {
+  id              String    @id @default(uuid())
+  tenantId        String
+  clientId        String
+  staffId         String
+  serviceId       String
+  scheduledAt     DateTime
+  endsAt          DateTime
+  status          String    @default("pending")
+  reminder24hSent Boolean   @default(false)
+  reminder1hSent  Boolean   @default(false)
+  reviewRequested Boolean   @default(false)
+  source          String
+  notes           String?
+  price           Float?
+  currency        String    @default("AED")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  staff           Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  service         Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  review          Review?
+  payments        Payment[]
+  Pet             Pet?      @relation(fields: [petId], references: [id])
+  petId           String?
+
+  @@index([staffId, scheduledAt, endsAt, status])
+  @@index([tenantId, scheduledAt])
+  @@index([tenantId, status])
+  @@index([status, scheduledAt])
+}
+
+model Conversation {
+  id            String                @id @default(uuid())
+  tenantId      String
+  clientId      String
+  platform      String
+  status        String                @default("active")
+  humanTakeover Boolean               @default(false)
+  lastMessageAt DateTime              @default(now())
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client        Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  messages      ConversationMessage[]
+
+  @@index([tenantId, lastMessageAt])
+  @@index([tenantId, status])
+  @@index([clientId, status])
+}
+
+model ConversationMessage {
+  id             String       @id @default(uuid())
+  conversationId String
+  role           String
+  content        String       @db.Text
+  toolCallsJson  String?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model UsageRecord {
+  id                  String   @id @default(uuid())
+  tenantId            String
+  monthYear           String
+  aiInteractionsCount Int      @default(0)
+  messagesSentCount   Int      @default(0)
+  broadcastSentCount  Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, monthYear])
+}
+
+model Broadcast {
+  id              String    @id @default(uuid())
+  tenantId        String
+  name            String
+  message         String    @db.Text
+  audience        String
+  customClientIds String[]  @default([])
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  status          String    @default("draft")
+  recipientCount  Int       @default(0)
+  deliveredCount  Int       @default(0)
+  failedCount     Int       @default(0)
+  readCount       Int       @default(0)
+  createdByUserId String?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, scheduledAt])
+  @@index([status, scheduledAt])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  tenantId  String
+  clientId  String?
+  bookingId String?  @unique
+  rating    Int
+  comment   String?  @db.Text
+  source    String   @default("whatsapp")
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, rating])
+}
+
+model UpsellRule {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  triggerServiceId   String
+  suggestedServiceId String
+  messageEn          String   @db.Text
+  messageAr          String   @db.Text
+  discountPercent    Int      @default(0)
+  priority           Int      @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, triggerServiceId, suggestedServiceId])
+  @@index([tenantId, isActive])
+}
+
+model WaitlistEntry {
+  id                 String    @id @default(uuid())
+  tenantId           String
+  clientId           String
+  serviceId          String
+  staffId            String?
+  preferredDate      DateTime?
+  preferredTimeOfDay String?
+  status             String    @default("waiting")
+  notes              String?
+  offeredBookingId   String?
+  notifiedAt         DateTime?
+  expiresAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client             Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  service            Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  staff              Staff?    @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, preferredDate])
+}
+
+model Payment {
+  id                    String    @id @default(uuid())
+  tenantId              String
+  bookingId             String?
+  clientId              String?
+  provider              String    @default("stripe")
+  amount                Float
+  currency              String    @default("AED")
+  status                String    @default("pending")
+  paymentUrl            String?
+  stripeSessionId       String?   @unique
+  stripePaymentIntentId String?
+  paidAt                DateTime?
+  expiresAt             DateTime?
+  metadataJson          String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  booking               Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  client                Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([bookingId])
+}
+
+model GiftCard {
+  id         String    @id @default(uuid())
+  tenantId   String
+  code       String    @unique
+  amount     Float
+  currency   String    @default("AED")
+  status     String    @default("active")
+  usedAt     DateTime?
+  usedBy     String?
+  expiryDate DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client     Client?   @relation(fields: [usedBy], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Pet {
+  id           String    @id @default(uuid())
+  tenantId     String
+  ownerId      String
+  name         String
+  species      String // Dog, Cat, Bird, Exotic, Small Mammal
+  breed        String?
+  gender       String? // Male, Female, Neutered Male, Spayed Female
+  dateOfBirth  DateTime?
+  weightKg     Float?
+  microchipNo  String?
+  medicalNotes String?   @db.Text
+  allergies    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  owner        Client    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings     Booking[]
+
+  @@index([tenantId])
+  @@index([ownerId])
+}
