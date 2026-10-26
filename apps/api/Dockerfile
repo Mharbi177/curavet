@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# GlamBot API image.
+# CuraVet API image.
 #
 # Notes on the pnpm layout: the API runs with its own node_modules next to
 # `dist/`, because TypeScript emits to `apps/api/dist` and pnpm's workspace

@@ -1,4 +1,4 @@
-name: GlamBot CI
+name: CuraVet CI
 
 on:
   push:
@@ -53,9 +53,9 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: glambot
-          POSTGRES_PASSWORD: glambot
-          POSTGRES_DB: glambot_test
+          POSTGRES_USER: curavet
+          POSTGRES_PASSWORD: curavet
+          POSTGRES_DB: curavet_test
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U glambot"
@@ -135,12 +135,12 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: glambot
-          POSTGRES_PASSWORD: glambot
-          POSTGRES_DB: glambot_e2e
+POSTGRES_USER: curavet
+          POSTGRES_PASSWORD: curavet
+          POSTGRES_DB: curavet_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U glambot"
+          --health-cmd "pg_isready -U curavet"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -155,7 +155,7 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://glambot:glambot@localhost:5432/glambot_e2e
+      DATABASE_URL: postgresql://curavet:curavet@localhost:5432/curavet_e2e
       JWT_SECRET: ci-jwt-secret-value-000000
       CREDENTIALS_ENCRYPTION_KEY: ci-encryption-key-000000
       META_VERIFY_TOKEN: ci-verify-token
