@@ -111,7 +111,7 @@ async function main() {
       create: {
         email: su.email,
         passwordHash: hashPassword(su.password),
-        role: 'staff',
+        role: 'receptionist',
         name: su.name,
         tenantId,
         isActive: true,

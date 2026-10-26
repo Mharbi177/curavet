@@ -42,7 +42,37 @@ export interface PaymentLinkResult {
 /**
  * Create a Stripe Checkout Session for a booking and persist a Payment row.
  * Returns the hosted payment URL that can be sent over WhatsApp.
+ *
+ * ⚠️  IMPORTANT: Stripe does NOT support TND (Tunisian Dinar). For Tunisian
+ * clinics, local payments (espèces, chèque, TPE, virement) are recorded
+ * directly via `createLocalPaymentRecord`. Only use this function when the
+ * tenant is configured with a Stripe-supported currency.
  */
+
+/**
+ * Currencies that carry three decimal places (smallest unit = 1/1000 of the
+ * major unit).  Stripe `unit_amount` must be expressed in that smallest unit,
+ * so we multiply by 1000 instead of the usual 100.
+ * Reference: https://stripe.com/docs/currencies#three-decimal
+ */
+const THREE_DECIMAL_CURRENCIES = new Set(['KWD', 'BHD', 'OMR', 'JOD']);
+
+/**
+ * Currencies Stripe supports for live payment sessions (common ones relevant
+ * to the MENA/EU expansion roadmap). TND is deliberately excluded because
+ * Stripe does not process it.
+ */
+const STRIPE_SUPPORTED_CURRENCIES = new Set([
+  'USD', 'EUR', 'GBP', 'AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR',
+  'JOD', 'MAD', 'EGP', 'CAD', 'AUD', 'SGD',
+]);
+
+function toStripeAmount(amount: number, currency: string): number {
+  const upper = currency.toUpperCase();
+  if (THREE_DECIMAL_CURRENCIES.has(upper)) return Math.round(amount * 1000);
+  return Math.round(amount * 100);
+}
+
 export async function createBookingPaymentLink(params: {
   tenantId: string;
   bookingId: string;
@@ -51,8 +81,20 @@ export async function createBookingPaymentLink(params: {
   serviceName: string;
   clientEmail?: string | null;
 }): Promise<PaymentLinkResult> {
+  const upper = params.currency.toUpperCase();
+
+  if (!STRIPE_SUPPORTED_CURRENCIES.has(upper)) {
+    throw Object.assign(
+      new Error(
+        `Currency "${params.currency}" is not supported by Stripe. ` +
+        `For local payments (espèces, chèque, TPE, virement), use createLocalPaymentRecord instead.`
+      ),
+      { statusCode: 422 }
+    );
+  }
+
   const stripe = getStripe();
-  const currency = params.currency.toLowerCase();
+  const currency = upper.toLowerCase();
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
@@ -64,7 +106,7 @@ export async function createBookingPaymentLink(params: {
         quantity: 1,
         price_data: {
           currency,
-          unit_amount: Math.round(params.amount * 100),
+          unit_amount: toStripeAmount(params.amount, upper),
           product_data: {
             name: params.serviceName,
             metadata: { tenantId: params.tenantId, bookingId: params.bookingId },
@@ -101,6 +143,44 @@ export async function createBookingPaymentLink(params: {
     amount: params.amount,
     currency: params.currency,
     expiresAt,
+  };
+}
+
+/**
+ * Record a local (non-Stripe) payment for clinics using cash, cheque, TPE, or
+ * bank transfer (virement) — the standard payment methods in Tunisia.
+ *
+ * method: 'especes' | 'cheque' | 'tpe' | 'virement'
+ */
+export async function createLocalPaymentRecord(params: {
+  tenantId: string;
+  bookingId?: string | null;
+  clientId?: string | null;
+  amount: number;
+  currency: string;
+  method: 'especes' | 'cheque' | 'tpe' | 'virement';
+}): Promise<{ paymentId: string; amount: number; currency: string; method: string }> {
+  const payment = await prisma.payment.create({
+    data: {
+      tenantId: params.tenantId,
+      bookingId: params.bookingId ?? null,
+      clientId: params.clientId ?? null,
+      provider: 'local',
+      amount: params.amount,
+      currency: params.currency,
+      status: 'paid',
+      method: params.method,
+      paidAt: new Date(),
+    },
+  });
+
+  logger.info('[payments] local payment recorded', { paymentId: payment.id, method: params.method });
+
+  return {
+    paymentId: payment.id,
+    amount: params.amount,
+    currency: params.currency,
+    method: params.method,
   };
 }
 

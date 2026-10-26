@@ -55,7 +55,11 @@ export function SettingsScreen() {
   };
 
   const displayName = user?.name || user?.email || 'Admin';
-  const role = user?.role === 'admin' ? 'Salon Administrator' : 'Staff Member';
+  const role =
+    user?.role === 'super_admin' ? 'Super Administrator'
+    : user?.role === 'doctor' ? 'Docteur Vétérinaire'
+    : user?.role === 'receptionist' ? 'Assistant(e) ASV'
+    : 'Propriétaire';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>

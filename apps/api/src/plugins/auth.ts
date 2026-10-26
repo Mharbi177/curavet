@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../env';
 import { prisma } from '../lib/prisma';
-import { AuthService, type TokenPayload } from '../services/auth';
+import { AuthService, type TokenPayload, type UserRole } from '../services/auth';
+import { isJtiRevoked } from '../services/sessions';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -25,6 +26,17 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     return reply.status(401).send({ error: 'Invalid or expired token' });
   }
 
+  // Refresh tokens are credentials for minting pairs at /api/auth/refresh —
+  // they never authenticate API calls directly.
+  if (payload.typ === 'refresh') {
+    return reply.status(401).send({ error: 'Invalid or expired token' });
+  }
+
+  // Server-side revocation (logout, ban): reject revoked jtis.
+  if (payload.jti && (await isJtiRevoked(payload.jti))) {
+    return reply.status(401).send({ error: 'Session revoked' });
+  }
+
   request.user = payload;
 }
 
@@ -38,6 +50,30 @@ export async function requireSuperAdmin(request: FastifyRequest, reply: FastifyR
   if (request.user.role !== 'super_admin') {
     return reply.status(403).send({ error: 'Super admin privileges required' });
   }
+}
+
+/**
+ * Reusable role guard factory for the 4-role RBAC model.
+ * Usage: `{ preHandler: [authenticate, requireRoles('doctor', 'receptionist')] }`.
+ * Token without a recognized role is treated as least-privilege (`client`).
+ */
+export function requireRoles(...allowed: UserRole[]) {
+  const allowedSet = new Set<UserRole>(allowed);
+  return async function requireRolesHandler(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+    // Legacy/unknown token roles are never honored as staff-level roles.
+    const role = request.user.role as UserRole;
+    const isKnown =
+      role === 'super_admin' || role === 'doctor' || role === 'receptionist' || role === 'client';
+    if (!isKnown || !allowedSet.has(role)) {
+      return reply.status(403).send({ error: 'Insufficient role privileges' });
+    }
+  };
 }
 
 /**

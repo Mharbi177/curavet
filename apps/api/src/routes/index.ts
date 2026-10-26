@@ -18,6 +18,7 @@ import reviewRoutes from './reviews';
 import paymentRoutes from './payments';
 import billingRoutes from './billing';
 import aiChatRoutes from './aiChat';
+import petRoutes from './pets';
 
 /**
  * Registers every HTTP route module.
@@ -48,4 +49,5 @@ export default async function registerRoutes(fastify: FastifyInstance): Promise<
   await fastify.register(paymentRoutes);
   await fastify.register(billingRoutes);
   await fastify.register(aiChatRoutes);
+  await fastify.register(petRoutes);
 }

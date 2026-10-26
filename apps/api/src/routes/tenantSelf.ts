@@ -82,7 +82,7 @@ export default async function tenantSelfRoutes(fastify: FastifyInstance) {
       aiProvider: z.enum(['auto', 'openai', 'groq']).optional(),
       aiModel: z.string().max(80).nullable().optional(),
       aiTemperature: z.number().min(0).max(2).optional(),
-      supportedLanguages: z.array(z.enum(['ar', 'en', 'fr', 'ur', 'tl'])).min(1).optional(),
+      supportedLanguages: z.array(z.enum(['ar', 'en', 'fr'])).min(1).optional(),
       // Feature flags
       remindersEnabled: z.boolean().optional(),
       reviewsEnabled: z.boolean().optional(),
@@ -130,7 +130,7 @@ export default async function tenantSelfRoutes(fastify: FastifyInstance) {
     const schema = z.object({
       timezone: z.string().min(3).optional(),
       languageDefault: z.string().optional(),
-      supportedLanguages: z.array(z.enum(['ar', 'en', 'fr', 'ur', 'tl'])).min(1).optional(),
+      supportedLanguages: z.array(z.enum(['ar', 'en', 'fr'])).min(1).optional(),
       aiProvider: z.enum(['auto', 'openai', 'groq']).optional(),
       aiModel: z.string().max(80).nullable().optional(),
       remindersEnabled: z.boolean().optional(),

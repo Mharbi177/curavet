@@ -11,7 +11,9 @@ export type OutboundPlatform = 'whatsapp' | 'instagram' | 'sms' | 'email';
 
 export interface ResolvedChannel {
   platform: OutboundPlatform;
-  externalAccountId?: string; // SMS uses phone number, Email uses verified sender
+  // Guaranteed non-empty: resolveChannel skips integrations without one.
+  // SMS uses the clinic sender number, Email the verified sender address.
+  externalAccountId: string;
   accessToken: string; // For email, this is the SendGrid API Key
 }
 
@@ -36,8 +38,8 @@ export async function resolveChannel(
 
     if (!integration) continue;
 
-    const resolvedExternalAccountId = integration.externalAccountId;
-    if (!resolvedExternalAccountId) continue;
+    const externalAccountId = integration.externalAccountId;
+    if (!externalAccountId) continue;
 
     const stored = integration.encryptedCredentials;
     const decrypted = stored ? CryptoService.decrypt(stored, env.CREDENTIALS_ENCRYPTION_KEY) : null;
@@ -55,7 +57,7 @@ export async function resolveChannel(
 
     if (!accessToken) continue;
 
-    return { platform, resolvedExternalAccountId, accessToken };
+    return { platform, externalAccountId, accessToken };
   }
 
   return null;
@@ -99,16 +101,16 @@ export async function sendToClient(params: {
 
     if (channel.platform === 'whatsapp') {
       const sender = new WhatsAppSender(channel.accessToken);
-      await sender.sendTextMessage(channel.resolvedExternalAccountId, params.to, params.message);
+      await sender.sendTextMessage(channel.externalAccountId, params.to, params.message);
     } else if (channel.platform === 'sms') {
       const sender = new SmsSender(channel.accessToken);
-      await sender.sendTextMessage(channel.resolvedExternalAccountId, params.to, params.message);
+      await sender.sendTextMessage(channel.externalAccountId, params.to, params.message);
     } else if (channel.platform === 'email') {
       const sender = new EmailSender(channel.accessToken);
-      await sender.sendEmail(params.to, 'GlamBot message', params.message, params.message);
+      await sender.sendEmail(params.to, 'CuraVet: Cabinet Veterinaire', params.message, params.message);
     } else {
       const sender = new InstagramSender(channel.accessToken);
-      await sender.sendTextMessage(channel.resolvedExternalAccountId, params.to, params.message);
+      await sender.sendTextMessage(channel.externalAccountId, params.to, params.message);
     }
 
     messagesSentTotal.inc({ tenant_id: params.tenantId, platform: channel.platform, outcome: 'sent' });

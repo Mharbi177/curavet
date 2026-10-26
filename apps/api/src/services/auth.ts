@@ -1,10 +1,16 @@
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual, randomUUID } from 'crypto';
+
+export type UserRole = 'super_admin' | 'doctor' | 'receptionist' | 'client';
 
 export interface TokenPayload {
   sub: string;
   email: string;
-  role: 'super_admin' | 'salon_admin' | 'staff';
+  role: UserRole;
   tenantId?: string;
+  /** Unique token id; enables per-token revocation and refresh rotation. */
+  jti?: string;
+  /** Token family: access tokens authenticate APIs, refresh tokens mint new pairs. */
+  typ?: 'access' | 'refresh';
   iat?: number;
   exp?: number;
 }
@@ -31,11 +37,18 @@ export class AuthService {
 
   /**
    * Generates a signed HS256 JWT token. Default expiration: 24 hours.
+   * `jti` is auto-generated unless the caller supplies one.
    */
-  static signToken(payload: TokenPayload, secret: string, expiresInSeconds = 86400): string {
+  static signToken(
+    payload: Omit<TokenPayload, 'iat' | 'exp'>,
+    secret: string,
+    expiresInSeconds = 86400
+  ): string {
     const header = { alg: 'HS256', typ: 'JWT' };
     const now = Math.floor(Date.now() / 1000);
     const fullPayload: TokenPayload = {
+      typ: 'access',
+      jti: randomUUID(),
       ...payload,
       iat: now,
       exp: now + expiresInSeconds,

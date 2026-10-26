@@ -77,6 +77,8 @@ export interface CreateBookingInput {
   status?: 'pending' | 'confirmed';
   notes?: string | null;
   price?: number | null;
+  /** Linked patient (Pet) for clinical bookings. */
+  petId?: string | null;
 }
 
 export type FailureCode =
@@ -204,6 +206,7 @@ async function createBookingInner(
           notes: input.notes ?? null,
           price: input.price ?? service.price,
           currency: service.currency,
+          petId: input.petId ?? null,
         },
       });
 

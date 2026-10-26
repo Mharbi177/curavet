@@ -79,7 +79,7 @@ export function SettingsPage() {
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
-  if (user?.role !== 'staff') {
+  if (user?.role !== 'receptionist') {
     tabs.push(
       { id: 'branding', label: 'Branding', icon: Palette },
       { id: 'integrations', label: 'Integrations', icon: Key }

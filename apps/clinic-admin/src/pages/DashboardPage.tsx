@@ -65,11 +65,11 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   completed: <CheckCircle2 className="w-3 h-3" />,
 };
 
-function getStatusVariant(status: string): 'warning' | 'success' | 'danger' | 'info' | 'default' {
+function getStatusVariant(status: string): 'warning' | 'success' | 'destructive' | 'info' | 'default' {
   switch (status) {
     case 'pending': return 'warning';
     case 'confirmed': return 'success';
-    case 'cancelled': return 'danger';
+    case 'cancelled': return 'destructive';
     case 'completed': return 'info';
     default: return 'default';
   }

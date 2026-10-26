@@ -8,13 +8,25 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// The four real actors of a Tunisian veterinary practice.
+// super_admin  — Plateforme CuraVet (SaaS owner: multi-clinic management & support)
+// doctor       — Docteur Vétérinaire (clinical authority: medical files, surgeries, prescriptions)
+// receptionist — Assistant(e) ASV (reception, walk-in queue, booking, cashing in TND, food sales)
+// client       — Propriétaire / Pet Parent (digital carnet de santé, WhatsApp booking)
+enum Role {
+  super_admin
+  doctor
+  receptionist
+  client
+}
+
 model User {
   id           String    @id @default(uuid())
   tenantId     String?
   email        String    @unique
   passwordHash String
   name         String?
-  role         String    @default("salon_admin")
+  role         Role      @default(doctor)
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
@@ -30,7 +42,7 @@ model Tenant {
   slug               String              @unique
   plan               String              @default("starter")
   paddleCustomerId   String?
-  timezone           String              @default("Asia/Dubai")
+  timezone           String              @default("Africa/Tunis")
   languageDefault    String              @default("en")
   isActive           Boolean             @default(true)
   aiProvider         String              @default("auto")
@@ -40,7 +52,7 @@ model Tenant {
   customDomain       String?             @unique
   brandName          String?
   logoUrl            String?
-  primaryColor       String?             @default("#ec4899")
+  primaryColor       String?             @default("#059669")
   welcomeMessage     String?
   webWidgetKey       String?             @unique
   webWidgetEnabled   Boolean             @default(true)
@@ -49,7 +61,7 @@ model Tenant {
   reviewsEnabled     Boolean             @default(true)
   upsellEnabled      Boolean             @default(false)
   waitlistEnabled    Boolean             @default(true)
-  emergencyPhone     String?             @default("+1-800-VET-EMRG")
+  emergencyPhone     String?             @default("+216 71 000 000")
   clinicType         String?             @default("small_animal")
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -68,6 +80,8 @@ model Tenant {
   upsellRules        UpsellRule[]
   pets               Pet[]
   GiftCard           GiftCard[]
+  medicalRecords     MedicalRecord[]
+  vaccinations       Vaccination[]
 
   @@index([isActive])
 }
@@ -171,7 +185,7 @@ model Booking {
   source          String
   notes           String?
   price           Float?
-  currency        String    @default("AED")
+  currency        String    @default("TND")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -325,19 +339,20 @@ model Payment {
   clientId              String?
   provider              String    @default("stripe")
   amount                Float
-  currency              String    @default("AED")
+  currency              String    @default("TND")
   status                String    @default("pending")
   paymentUrl            String?
   stripeSessionId       String?   @unique
   stripePaymentIntentId String?
+  method                String?   // especes | cheque | tpe | virement | card | stripe
   paidAt                DateTime?
   expiresAt             DateTime?
   metadataJson          String?
   createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  booking               Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  client                Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  updatedAt          DateTime @updatedAt
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  booking            Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  client             Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, status])
   @@index([bookingId])
@@ -348,7 +363,7 @@ model GiftCard {
   tenantId   String
   code       String    @unique
   amount     Float
-  currency   String    @default("AED")
+  currency   String    @default("TND")
   status     String    @default("active")
   usedAt     DateTime?
   usedBy     String?
@@ -363,24 +378,67 @@ model GiftCard {
 }
 
 model Pet {
-  id           String    @id @default(uuid())
-  tenantId     String
-  ownerId      String
-  name         String
-  species      String // Dog, Cat, Bird, Exotic, Small Mammal
-  breed        String?
-  gender       String? // Male, Female, Neutered Male, Spayed Female
-  dateOfBirth  DateTime?
-  weightKg     Float?
-  microchipNo  String?
-  medicalNotes String?   @db.Text
-  allergies    String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  owner        Client    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bookings     Booking[]
+  id              String          @id @default(uuid())
+  tenantId        String
+  ownerId         String
+  name            String
+  species         String // Dog, Cat, NAC (Rabbit, Bird, Ferret), Equine
+  breed           String?
+  gender          String? // M, F, MN (Neutered Male), FS (Spayed Female)
+  dateOfBirth     DateTime?
+  weightKg        Float?
+  microchipNo     String?
+  tattooNo        String?
+  medicalNotes    String?         @db.Text
+  allergies       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  owner           Client          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings        Booking[]
+  medicalRecords  MedicalRecord[]
+  vaccinations    Vaccination[]
 
   @@index([tenantId])
   @@index([ownerId])
+  @@index([microchipNo])
+}
+
+model MedicalRecord {
+  id             String   @id @default(uuid())
+  tenantId       String
+  petId          String
+  doctorId       String
+  bookingId      String?
+  visitDate      DateTime @default(now())
+  symptoms       String   @db.Text
+  diagnosis      String   @db.Text
+  treatmentPlan  String   @db.Text
+  weightAtVisit  Float?
+  temperatureC   Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  pet            Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([petId, visitDate])
+  @@index([tenantId])
+}
+
+model Vaccination {
+  id               String   @id @default(uuid())
+  tenantId         String
+  petId            String
+  vaccineName      String // e.g. Rabisin, Eurican, Nobivac, Purevax
+  diseaseTarget    String // Rage, CHPPiL, Tricat, Leucose
+  batchNumber      String
+  administeredDate DateTime @default(now())
+  nextDueDate      DateTime
+  administeredById String
+  createdAt        DateTime @default(now())
+  pet              Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+  @@index([tenantId, nextDueDate])
 }

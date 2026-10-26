@@ -42,7 +42,9 @@ function ChatDemo() {
     setIsTyping(true);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+      const apiUrl =
+        (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_URL ||
+        'http://localhost:4000';
       const res = await fetch(`${apiUrl}/api/public/widget/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

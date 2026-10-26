@@ -1,15 +1,27 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { env } from '../env';
 import { prisma } from '../lib/prisma';
 import { authenticate } from '../plugins/auth';
-import { AuthService, hashPassword, verifyPassword, type TokenPayload } from '../services/auth';
+import {
+  AuthService,
+  hashPassword,
+  verifyPassword,
+  type TokenPayload,
+} from '../services/auth';
+import {
+  storeRefreshSession,
+  consumeRefreshSession,
+  deleteRefreshSession,
+  revokeJti,
+} from '../services/sessions';
 
 const CreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(1).optional(),
-  role: z.enum(['super_admin', 'salon_admin', 'staff']).default('salon_admin'),
+  role: z.enum(['super_admin', 'doctor', 'receptionist', 'client']).default('doctor'),
   tenantId: z.string().optional(),
 });
 
@@ -18,14 +30,16 @@ const CreateUserSchema = z.object({
  * Unknown values are treated as least-privilege rather than trusted.
  */
 function normaliseRole(role: string | null | undefined): TokenPayload['role'] {
-  if (role === 'super_admin' || role === 'salon_admin' || role === 'staff') return role;
-  return 'staff';
+  if (role === 'super_admin' || role === 'doctor' || role === 'receptionist' || role === 'client') return role;
+  // Unknown/legacy values are least-privilege rather than trusted.
+  return 'client';
 }
 
 export const TENANT_PUBLIC_FIELDS = {
   id: true,
   name: true,
   slug: true,
+  emergencyPhone: true,
   timezone: true,
   plan: true,
   isActive: true,
@@ -153,15 +167,27 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       const role = normaliseRole(effectiveUser.role);
 
+      // ── Session pair: short-lived access token + rotating refresh token ──
+      const baseIdentity = {
+        sub: effectiveUser.id,
+        email: effectiveUser.email,
+        role,
+        ...(effectiveUser.tenantId ? { tenantId: effectiveUser.tenantId } : {}),
+      };
+
+      const refreshJti = randomUUID();
+      await storeRefreshSession(refreshJti, baseIdentity);
+
+      const accessExpiresAt = Math.floor(Date.now() / 1000) + env.jwtTtlSeconds;
       const token = AuthService.signToken(
-        {
-          sub: effectiveUser.id,
-          email: effectiveUser.email,
-          role,
-          ...(effectiveUser.tenantId ? { tenantId: effectiveUser.tenantId } : {}),
-        },
+        { ...baseIdentity, typ: 'access', jti: randomUUID() },
         env.JWT_SECRET,
         env.jwtTtlSeconds
+      );
+      const refreshToken = AuthService.signToken(
+        { ...baseIdentity, typ: 'refresh', jti: refreshJti },
+        env.JWT_SECRET,
+        env.jwtRefreshTtlSeconds
       );
 
       reply.setCookie('access_token', token, {
@@ -171,11 +197,20 @@ export default async function authRoutes(fastify: FastifyInstance) {
         sameSite: 'lax',
         maxAge: env.jwtTtlSeconds,
       });
+      reply.setCookie('refresh_token', refreshToken, {
+        path: '/api/auth',
+        httpOnly: true,
+        secure: env.isProduction,
+        sameSite: 'lax',
+        maxAge: env.jwtRefreshTtlSeconds,
+      });
 
       const csrfToken = await reply.generateCsrf();
 
       return reply.send({
         token,
+        refreshToken,
+        accessExpiresAt,
         csrfToken,
         user: {
           id: effectiveUser.id,
@@ -198,15 +233,115 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   );
 
-  /** GET /api/csrf-token — issues a CSRF token for forms before login. */
-  fastify.get('/api/csrf-token', async (request, reply) => {
-    const token = await reply.generateCsrf();
-    return reply.send({ csrfToken: token });
-  });
+  /**
+   * POST /api/auth/refresh — rotate the refresh token and mint a new access token.
+   *
+   * The refresh token arrives via the httpOnly cookie (web) or in the body
+   * (mobile / native clients, where cookies are impractical). Rotation is
+   * enforced: the presented token's jti must exist in the Redis whitelist and
+   * is consumed (deleted) before the replacement is issued, so a replayed
+   * token is rejected.
+   */
+  fastify.post(
+    '/api/auth/refresh',
+    {
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+      schema: { body: { type: 'object', properties: { refreshToken: { type: 'string' } } } },
+    },
+    async (request, reply) => {
+      const { refreshToken } = (request.body ?? {}) as { refreshToken?: string };
+      const presented = refreshToken || request.cookies.refresh_token || null;
+
+      if (!presented) {
+        return reply.status(401).send({ error: 'Missing refresh token' });
+      }
+
+      const payload = AuthService.verifyToken(presented, env.JWT_SECRET);
+      if (!payload || payload.typ !== 'refresh' || !payload.jti) {
+        return reply.status(401).send({ error: 'Invalid refresh token' });
+      }
+
+      // Rotation: consume the old session row. Replay == unknown row.
+      const session = await consumeRefreshSession(payload.jti);
+      if (!session || session.sub !== payload.sub) {
+        return reply.status(401).send({ error: 'Refresh token expired or already used' });
+      }
+
+      // The account may have been disabled or deleted since issuance.
+      if (session.sub !== 'env-super-admin') {
+        const user = await prisma.user.findUnique({
+          where: { id: session.sub },
+          select: { id: true, email: true, role: true, tenantId: true, isActive: true },
+        });
+        if (!user || !user.isActive) {
+          return reply.status(401).send({ error: 'Account is disabled' });
+        }
+        session.role = user.role;
+        session.tenantId = user.tenantId ?? session.tenantId;
+      }
+
+      const { jti: _consumed, ...identity } = session as typeof session & { jti?: string };
+      void _consumed;
+      // Normalise again: the role could have changed server-side since issuance.
+      const refreshedIdentity = { ...identity, role: normaliseRole(identity.role) };
+
+      const newRefreshJti = randomUUID();
+      await storeRefreshSession(
+        newRefreshJti,
+        { sub: refreshedIdentity.sub, email: refreshedIdentity.email, role: refreshedIdentity.role, ...(refreshedIdentity.tenantId ? { tenantId: refreshedIdentity.tenantId } : {}) }
+      );
+
+      const newToken = AuthService.signToken(
+        { ...refreshedIdentity, typ: 'access', jti: randomUUID() },
+        env.JWT_SECRET,
+        env.jwtTtlSeconds
+      );
+      const newRefreshToken = AuthService.signToken(
+        { ...refreshedIdentity, typ: 'refresh', jti: newRefreshJti },
+        env.JWT_SECRET,
+        env.jwtRefreshTtlSeconds
+      );
+
+      reply.setCookie('access_token', newToken, {
+        path: '/',
+        httpOnly: true,
+        secure: env.isProduction,
+        sameSite: 'lax',
+        maxAge: env.jwtTtlSeconds,
+      });
+      reply.setCookie('refresh_token', newRefreshToken, {
+        path: '/api/auth',
+        httpOnly: true,
+        secure: env.isProduction,
+        sameSite: 'lax',
+        maxAge: env.jwtRefreshTtlSeconds,
+      });
+
+      // Refresh tokens are least-privilege credentials: nobody presents them
+      // as API auth, so the middleware rejects `typ === 'refresh'`.
+      return reply.send({
+        token: newToken,
+        refreshToken: newRefreshToken,
+        accessExpiresAt: Math.floor(Date.now() / 1000) + env.jwtTtlSeconds,
+      });
+    }
+  );
 
   /** POST /api/auth/logout — clears the auth cookies. */
   fastify.post('/api/auth/logout', async (request, reply) => {
+    // Revoke both presented jtis so stolen copies die with the session.
+    const access = request.cookies.access_token
+      ? AuthService.verifyToken(request.cookies.access_token, env.JWT_SECRET)
+      : null;
+    const refresh = request.cookies.refresh_token
+      ? AuthService.verifyToken(request.cookies.refresh_token, env.JWT_SECRET)
+      : null;
+
+    if (access?.jti) await revokeJti(access.jti, access.exp ?? 0);
+    if (refresh?.jti) await deleteRefreshSession(refresh.jti);
+
     reply.clearCookie('access_token', { path: '/' });
+    reply.clearCookie('refresh_token', { path: '/api/auth' });
     reply.clearCookie('_csrf', { path: '/' });
     return reply.send({ message: 'Logged out' });
   });

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, CalendarDays, Users, MessageSquare, Settings,
   BarChart2, Megaphone, Activity, UserCog, ChevronRight, LogOut,
-  Stethoscope, ClipboardList, Shield,
+  Stethoscope, ClipboardList, Shield, PawPrint,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { clearAuthToken } from '../../lib/auth';
@@ -13,41 +13,60 @@ import { useAuth } from '../../hooks/useAuth';
 
 interface SidebarProps { isOpen: boolean; onClose: () => void; }
 
-const ADMIN_NAV = [
-  { name: 'Dashboard',        href: '/dashboard',     icon: LayoutDashboard },
-  { name: 'Calendar',         href: '/calendar',       icon: CalendarDays },
-  { name: 'Conversations',    href: '/conversations',  icon: MessageSquare },
-  { name: 'Patients & Owners', href: '/clients',       icon: Users },
-  { name: 'Treatments',       href: '/services',       icon: Activity },
-  { name: 'Veterinary Team',  href: '/staff',          icon: UserCog },
-  { name: 'Broadcast',        href: '/broadcast',      icon: Megaphone },
-  { name: 'Analytics',        href: '/analytics',      icon: BarChart2 },
-  { name: 'Settings',         href: '/settings',       icon: Settings },
+// Phase 2.3 — navigation realignment for the two front-desk actors.
+// hrefs stay on existing routes so each role reaches its workflow directly.
+const DOCTOR_NAV = [
+  { name: "Salle d'attente",         href: '/my-workflow',   icon: Stethoscope },
+  { name: 'Agenda Médical',          href: '/calendar',      icon: CalendarDays },
+  { name: 'Dossiers Patients',       href: '/clients',       icon: Users },
+  { name: 'Carnets de Santé',        href: '/pets',          icon: PawPrint },
+  { name: 'Messagerie',              href: '/conversations', icon: MessageSquare },
+  { name: 'Suivi RDV',               href: '/workflow',      icon: ClipboardList },
+  { name: "Paramètres du Cabinet",   href: '/settings',      icon: Settings },
 ];
 
-const VET_NAV = [
-  { name: 'My Rounds',        href: '/my-workflow',   icon: Stethoscope },
-  { name: 'Calendar',         href: '/calendar',       icon: CalendarDays },
-  { name: 'Conversations',    href: '/conversations',  icon: MessageSquare },
-  { name: 'My Schedule',      href: '/workflow',       icon: ClipboardList },
-  { name: 'Settings',         href: '/settings',       icon: Settings },
+const RECEPTIONIST_NAV = [
+  { name: "Accueil & Salle d'attente", href: '/my-workflow',    icon: Stethoscope },
+  { name: 'Planning Général',          href: '/calendar',       icon: CalendarDays },
+  { name: 'Fiches Clients',            href: '/clients',        icon: Users },
+  { name: 'Carnets de Santé',          href: '/pets',           icon: PawPrint },
+  { name: 'Caisse & Suivi RDV',        href: '/workflow',       icon: ClipboardList },
+  { name: 'WhatsApp & RDV',            href: '/conversations',  icon: MessageSquare },
 ];
+
+const ADMIN_NAV = [
+  { name: 'Dashboard',          href: '/dashboard',     icon: LayoutDashboard },
+  { name: 'Calendar',           href: '/calendar',       icon: CalendarDays },
+  { name: 'Conversations',      href: '/conversations',  icon: MessageSquare },
+  { name: 'Patients & Owners',  href: '/clients',        icon: Users },
+  { name: 'Health Records',     href: '/pets',           icon: PawPrint },
+  { name: 'Treatments',         href: '/services',       icon: Activity },
+  { name: 'Veterinary Team',    href: '/staff',          icon: UserCog },
+  { name: 'Broadcast',          href: '/broadcast',      icon: Megaphone },
+  { name: 'Analytics',          href: '/analytics',      icon: BarChart2 },
+  { name: 'Settings',           href: '/settings',       icon: Settings },
+];
+
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, tenant } = useAuth();
 
-  const isStaff = user?.role === 'staff';
-  const isSuperAdmin = user?.role === 'super_admin';
-  const nav = isStaff ? VET_NAV : ADMIN_NAV;
+  const role = user?.role ?? 'doctor';
+  const isDoctor = role === 'doctor';
+  const isReceptionist = role === 'receptionist' || role === 'client';
+  const isSuperAdmin = role === 'super_admin';
+  const nav = isDoctor || isSuperAdmin ? DOCTOR_NAV : RECEPTIONIST_NAV;
+  // Super-admins additionally keep the platform pages.
+  const extraNav = isSuperAdmin ? ADMIN_NAV : [];
 
-  const roleLabel = isSuperAdmin ? 'Super Administrator' : isStaff ? 'Veterinarian' : 'Practice Manager';
+  const roleLabel = isSuperAdmin ? 'Super Administrator' : isDoctor ? 'Docteur Vétérinaire' : 'Assistant(e) ASV';
   const roleBadge = isSuperAdmin
     ? { text: 'SUPER ADMIN', cls: 'bg-violet-500/20 text-violet-300' }
-    : isStaff
-    ? { text: 'VET STAFF', cls: 'bg-emerald-500/20 text-emerald-300' }
-    : { text: 'ADMIN', cls: 'bg-sky-500/20 text-sky-300' };
+    : isDoctor
+    ? { text: 'DOCTEUR', cls: 'bg-emerald-500/20 text-emerald-300' }
+    : { text: 'ASV', cls: 'bg-sky-500/20 text-sky-300' };
 
   const handleLogout = () => {
     clearAuthToken();
@@ -97,7 +116,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto scrollbar-hide">
-          {nav.map((item) => {
+          {[...nav, ...extraNav].map((item) => {
             const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
             return (
               <Link

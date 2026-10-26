@@ -18,7 +18,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'staff';
+  role: 'super_admin' | 'doctor' | 'receptionist' | 'client';
   tenantId: string;
   tenant: Tenant;
 }

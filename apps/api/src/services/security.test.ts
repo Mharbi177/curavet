@@ -81,7 +81,7 @@ describe('AuthService — JWT', () => {
 
   it('carries the tenant id so salon tokens stay scoped', () => {
     const token = AuthService.signToken(
-      { sub: 'u', email: 'e', role: 'salon_admin', tenantId: 'tenant-x' },
+      { sub: 'u', email: 'e', role: 'doctor', tenantId: 'tenant-x' },
       SECRET,
       60
     );
@@ -89,17 +89,17 @@ describe('AuthService — JWT', () => {
   });
 
   it('rejects a token signed with a different secret', () => {
-    const token = AuthService.signToken({ sub: 'a', email: 'e', role: 'staff' }, SECRET, 60);
+    const token = AuthService.signToken({ sub: 'a', email: 'e', role: 'receptionist' }, SECRET, 60);
     expect(AuthService.verifyToken(token, 'another-secret')).toBeNull();
   });
 
   it('rejects a tampered token', () => {
-    const token = AuthService.signToken({ sub: 'a', email: 'e', role: 'staff' }, SECRET, 60);
+    const token = AuthService.signToken({ sub: 'a', email: 'e', role: 'receptionist' }, SECRET, 60);
     expect(AuthService.verifyToken(`${token}xyz`, SECRET)).toBeNull();
   });
 
   it('rejects an expired token', () => {
-    const token = AuthService.signToken({ sub: 'a', email: 'e', role: 'staff' }, SECRET, -10);
+    const token = AuthService.signToken({ sub: 'a', email: 'e', role: 'receptionist' }, SECRET, -10);
     expect(AuthService.verifyToken(token, SECRET)).toBeNull();
   });
 

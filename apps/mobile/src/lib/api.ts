@@ -41,6 +41,7 @@ export const API_BASE_URL = Platform.OS === 'web'
     ? 'http://10.0.2.2:3000' 
     : 'http://localhost:3000';
 const TOKEN_KEY = '@glambot/auth_token';
+const REFRESH_KEY = '@glambot/refresh_token';
 
 export async function getAuthToken(): Promise<string | null> {
   return AsyncStorage.getItem(TOKEN_KEY);
@@ -54,10 +55,20 @@ export async function clearAuthToken(): Promise<void> {
   await AsyncStorage.removeItem(TOKEN_KEY);
 }
 
+export async function getRefreshToken(): Promise<string | null> {
+  return AsyncStorage.getItem(REFRESH_KEY);
+}
+
+export async function setRefreshToken(token: string): Promise<void> {
+  await AsyncStorage.setItem(REFRESH_KEY, token);
+}
+
 // ─── API Client ───────────────────────────────────────────────────────────────
 class ApiClient {
   private client: AxiosInstance;
   private onUnauthorized?: () => void;
+  /** Serialize concurrent 401s through a single refresh exchange. */
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -78,11 +89,27 @@ class ApiClient {
       (error) => Promise.reject(error)
     );
 
-    // Handle 401 globally
+      // Handle 401 globally: renew the session once, then retry the request.
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
-        if (error.response?.status === 401) {
+      async (error: AxiosError) => {
+        const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
+        const isAuthCall = (original?.url ?? '').includes('/auth/');
+
+        if (error.response?.status === 401 && original && !original._retried && !isAuthCall) {
+          const newToken = await this.renewSession();
+          if (newToken) {
+            original._retried = true;
+            original.headers.Authorization = `Bearer ${newToken}`;
+            try {
+              return await this.client.request(original);
+            } catch (retryError) {
+              error = retryError as AxiosError;
+            }
+          }
+        }
+
+        if (error.response?.status === 401 && !original?._retried) {
           clearAuthToken();
           this.onUnauthorized?.();
         }
@@ -92,14 +119,39 @@ class ApiClient {
     );
   }
 
+  /** Exchange the refresh token for a new access/refresh pair (single-flight). */
+  private renewSession(): Promise<string | null> {
+    this.refreshPromise ??= (async () => {
+      try {
+        const refreshToken = await getRefreshToken();
+        if (!refreshToken) return null;
+        const { data } = await this.client.post<{ token: string; refreshToken?: string }>(
+          '/auth/refresh',
+          { refreshToken }
+        );
+        await setAuthToken(data.token);
+        if (data.refreshToken) await setRefreshToken(data.refreshToken);
+        return data.token;
+      } catch {
+        return null;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+    return this.refreshPromise;
+  }
+
   setUnauthorizedHandler(handler: () => void) {
     this.onUnauthorized = handler;
   }
 
   // ─── Auth ─────────────────────────────────────────────────────────────────
   async login(email: string, password: string): Promise<{ token: string; user: User }> {
-    const { data } = await this.client.post<{ token: string; user: User }>('/auth/login', { email, password });
+    const { data } = await this.client.post<{ token: string; refreshToken?: string; user: User }>('/auth/login', { email, password });
     await setAuthToken(data.token);
+    if (data.refreshToken) {
+      await setRefreshToken(data.refreshToken);
+    }
     return data;
   }
 
@@ -109,7 +161,13 @@ class ApiClient {
   }
 
   async logout(): Promise<void> {
+    try {
+      await this.client.post('/auth/logout', {});
+    } catch {
+      // Best-effort server-side revocation; local cleanup always proceeds.
+    }
     await clearAuthToken();
+    await AsyncStorage.removeItem(REFRESH_KEY);
   }
 
   // ─── Dashboard ────────────────────────────────────────────────────────────

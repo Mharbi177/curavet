@@ -46,6 +46,19 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_schedule_and_appointments',
+      description: 'Look up who is scheduled / what appointments exist for a date (defaults to today). Call before answering any schedule inquiry.',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'YYYY-MM-DD in the clinic timezone; omit for today' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'check_availability',
       description: 'Check available time slots for a service on a given date. Always call before offering times.',
       parameters: {
@@ -458,7 +471,7 @@ export class CuraVetAgent {
    * the agent and the salon dashboard can never disagree about conflicts.
    */
   private async bookAppointment(
-    args: { date?: string; time?: string; service_id?: string; staff_id?: string },
+    args: { date?: string; time?: string; service_id?: string; staff_id?: string; pet_name?: string; species?: string },
     timezone: string,
     ctx: ProcessContext
   ): Promise<{ text: string; serviceId?: string; paymentUrl?: string }> {
@@ -473,6 +486,25 @@ export class CuraVetAgent {
       return { text: `Cannot book without identifying the client: ${(error as Error).message}` };
     }
 
+    // Phase 3 — attach (or auto-create) the patient to the booking.
+    let petId: string | undefined;
+    if (args.pet_name) {
+      const species = args.species?.trim() || 'Dog';
+      const existing = await prisma.pet.findFirst({
+        where: { tenantId: this.tenantId, ownerId: clientId, name: args.pet_name },
+        select: { id: true },
+      });
+      if (existing) {
+        petId = existing.id;
+      } else {
+        const created = await prisma.pet.create({
+          data: { tenantId: this.tenantId, ownerId: clientId, name: args.pet_name, species },
+          select: { id: true },
+        });
+        petId = created.id;
+      }
+    }
+
     const result = await createBooking({
       tenantId: this.tenantId,
       clientId,
@@ -482,6 +514,7 @@ export class CuraVetAgent {
       time: args.time,
       source: ctx.platform ?? 'whatsapp',
       status: 'confirmed',
+      petId,
     });
 
     if (!result.ok) {

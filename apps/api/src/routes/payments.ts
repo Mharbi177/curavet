@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { authenticate, requireTenant } from '../plugins/auth';
+import { authenticate, requireRoles, requireTenant } from '../plugins/auth';
 import { createBookingPaymentLink, isStripeEnabled } from '../services/payments';
 import { enqueueOutbound } from '../services/queue';
 
@@ -51,7 +52,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
           tenantId: booking.tenantId,
           bookingId: booking.id,
           amount,
-          currency: booking.currency || booking.service.currency || 'AED',
+          currency: booking.currency || booking.service.currency || 'TND',
           serviceName: booking.service.nameEn,
           clientEmail: null,
         });
@@ -74,10 +75,21 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
   fastify.post(
     '/api/tenants/me/bookings/:id/mark-paid',
-    { preHandler: requireTenant },
+    { preHandler: [requireTenant, requireRoles('super_admin', 'receptionist', 'doctor')] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const tenantId = tenantIdOf(request);
+
+      // Tunisian counter reconciliation methods. Bank details only apply to
+      // cheques; card/transfer clerks record a reference when they have one.
+      const body = z
+        .object({
+          method: z.enum(['especes', 'cheque', 'tpe', 'virement']).default('especes'),
+          bankName: z.string().max(120).nullish(),
+          checkNumber: z.string().max(40).nullish(),
+          reference: z.string().max(120).nullish(),
+        })
+        .parse(request.body ?? {});
 
       const booking = await prisma.booking.findFirst({
         where: { id, tenantId },
@@ -85,16 +97,23 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
       });
       if (!booking) return reply.status(404).send({ error: 'Booking not found' });
 
-      // Cash / card-on-terminal settlement recorded by the salon.
+      // Counter settlement recorded by the receptionist (caisse).
       await prisma.payment.create({
         data: {
           tenantId,
           bookingId: booking.id,
+          clientId: booking.clientId,
           provider: 'manual',
+          method: body.method,
           amount: booking.price ?? booking.service.price,
-          currency: booking.currency || booking.service.currency || 'AED',
+          currency: booking.currency || booking.service.currency || 'TND',
           status: 'paid',
           paidAt: new Date(),
+          metadataJson: JSON.stringify({
+            ...(body.bankName ? { bankName: body.bankName } : {}),
+            ...(body.checkNumber ? { checkNumber: body.checkNumber } : {}),
+            ...(body.reference ? { reference: body.reference } : {}),
+          }),
         },
       });
 

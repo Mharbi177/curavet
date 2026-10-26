@@ -4,7 +4,10 @@ export class EmailSender {
 
   constructor(apiKey: string, timeoutMs = 10000) {
     this.timeoutMs = timeoutMs;
+    this.apiKey = apiKey;
   }
+
+  private readonly apiKey: string;
 
   async sendEmail(to: string, subject: string, text: string, html: string) {
     const controller = new AbortController();

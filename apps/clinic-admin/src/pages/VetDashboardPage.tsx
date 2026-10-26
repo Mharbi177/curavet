@@ -29,7 +29,7 @@ export function VetDashboardPage() {
   const { data: bookings = [], isLoading, refetch } = useQuery({
     queryKey: ['vet-bookings-today'],
     queryFn: async () => {
-      const all = await api.getBookings({ limit: 100 });
+      const all = await api.getBookings();
       const items = Array.isArray(all) ? all : (all as any).items ?? [];
       return items.filter((b: any) => {
         const d = new Date(b.scheduledAt);

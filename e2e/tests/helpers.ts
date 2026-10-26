@@ -106,7 +106,7 @@ export async function seedSalon(suffix: string): Promise<SeededSalon> {
         email,
         password,
         name: 'E2E Owner',
-        role: 'salon_admin',
+        role: 'doctor',
         tenantId: tenant.id,
       }),
     }),

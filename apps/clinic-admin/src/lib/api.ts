@@ -1,5 +1,5 @@
-import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
-import { getAuthToken, clearAuthToken } from './auth';
+import axios, { AxiosError, AxiosInstance, type AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import { getAuthToken, setAuthToken, getRefreshToken, setRefreshToken, clearAuthToken } from './auth';
 import type {
   AnalyticsSummary,
   Booking,
@@ -9,15 +9,18 @@ import type {
   DashboardStats,
   LanguageCode,
   LanguageConfig,
+  MedicalRecord,
   Payment,
   PaymentLink,
   PaginatedClients,
+  Pet,
   RatingAggregate,
   Review,
   Service,
   Staff,
   Tenant,
   UpsellRule,
+  Vaccination,
   WaitlistEntry,
 } from './types';
 
@@ -35,6 +38,8 @@ export type ClientUpdate = Partial<{
 
 class ApiClient {
   private client: AxiosInstance;
+  /** Serialize concurrent 401s through a single refresh exchange. */
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -58,14 +63,49 @@ class ApiClient {
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
-        if (error.response?.status === 401) {
+      async (error: AxiosError) => {
+        // Access tokens are short-lived (15 min). On a 401, silently renew via
+        // the refresh token and retry the original request exactly once.
+        const original = error.config as (AxiosRequestConfig & { _retried?: boolean }) | undefined;
+        const isAuthCall = (original?.url ?? '').includes('/auth/refresh');
+
+        if (error.response?.status === 401 && original && !original._retried && !isAuthCall) {
+          const newToken = await this.renewSession();
+          if (newToken) {
+            original._retried = true;
+            if (original.headers) {
+              original.headers.Authorization = `Bearer ${newToken}`;
+            }
+            return this.client.request(original);
+          }
           clearAuthToken();
           window.location.href = '/login';
         }
         return Promise.reject(error);
       }
     );
+  }
+
+  /** Exchange the refresh token for a new access/refresh pair (single-flight). */
+  private renewSession(): Promise<string | null> {
+    this.refreshPromise ??= (async () => {
+      try {
+        const refreshToken = getRefreshToken();
+        if (!refreshToken) return null;
+        const { data } = await this.client.post<{ token: string; refreshToken?: string }>(
+          '/auth/refresh',
+          { refreshToken }
+        );
+        setAuthToken(data.token);
+        if (data.refreshToken) setRefreshToken(data.refreshToken);
+        return data.token;
+      } catch {
+        return null;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+    return this.refreshPromise;
   }
 
   // Tenant-scoped endpoints
@@ -121,7 +161,7 @@ class ApiClient {
 
   async updateBooking(
     id: string,
-    data: Partial<{ scheduledAt: string; staffId: string; status: string }>
+    data: Partial<{ scheduledAt: string; date: string; time: string; staffId: string; status: string; notes: string | null }>
   ): Promise<Booking> {
     const { data: booking } = await this.client.patch<Booking>(
       `/tenants/me/bookings/${id}`,
@@ -392,7 +432,7 @@ class ApiClient {
   async updateSettings(data: {
     timezone?: string;
     languageDefault?: string;
-    supportedLanguages?: Array<'ar' | 'en' | 'fr' | 'ur' | 'tl'>;
+    supportedLanguages?: Array<'ar' | 'en' | 'fr'>;
     aiProvider?: 'auto' | 'openai' | 'groq';
     aiModel?: string | null;
     remindersEnabled?: boolean;
@@ -421,6 +461,80 @@ class ApiClient {
   async getLanguages(): Promise<LanguageConfig> {
     const { data } = await this.client.get<LanguageConfig>('/tenants/me/languages');
     return data;
+  }
+
+  // ─── Pet / Patient Health Record endpoints ────────────────────────────────
+
+  async getPets(params?: { q?: string; ownerId?: string }): Promise<Pet[]> {
+    const { data } = await this.client.get<Pet[]>('/tenants/me/pets', { params });
+    return data;
+  }
+
+  async getPet(id: string): Promise<Pet> {
+    const { data } = await this.client.get<Pet>(`/tenants/me/pets/${id}`);
+    return data;
+  }
+
+  async createPet(data: {
+    ownerId: string;
+    name: string;
+    species: string;
+    breed?: string | null;
+    gender?: 'M' | 'F' | 'MN' | 'FS' | null;
+    dateOfBirth?: string | null;
+    weightKg?: number | null;
+    microchipNo?: string | null;
+    tattooNo?: string | null;
+    allergies?: string | null;
+    medicalNotes?: string | null;
+  }): Promise<Pet> {
+    const { data: pet } = await this.client.post<Pet>('/tenants/me/pets', data);
+    return pet;
+  }
+
+  async updatePet(id: string, data: Partial<{
+    name: string;
+    species: string;
+    breed: string | null;
+    gender: 'M' | 'F' | 'MN' | 'FS' | null;
+    dateOfBirth: string | null;
+    weightKg: number | null;
+    microchipNo: string | null;
+    tattooNo: string | null;
+    allergies: string | null;
+    medicalNotes: string | null;
+  }>): Promise<Pet> {
+    const { data: pet } = await this.client.patch<Pet>(`/tenants/me/pets/${id}`, data);
+    return pet;
+  }
+
+  async createMedicalRecord(petId: string, data: {
+    bookingId?: string | null;
+    symptoms: string;
+    diagnosis: string;
+    treatmentPlan: string;
+    weightAtVisit?: number | null;
+    temperatureC?: number | null;
+  }): Promise<MedicalRecord> {
+    const { data: record } = await this.client.post<MedicalRecord>(
+      `/tenants/me/pets/${petId}/medical-records`,
+      data
+    );
+    return record;
+  }
+
+  async createVaccination(petId: string, data: {
+    vaccineName: string;
+    diseaseTarget: string;
+    batchNumber: string;
+    administeredDate?: string | null;
+    nextDueDate: string;
+  }): Promise<Vaccination> {
+    const { data: vax } = await this.client.post<Vaccination>(
+      `/tenants/me/pets/${petId}/vaccinations`,
+      data
+    );
+    return vax;
   }
 }
 

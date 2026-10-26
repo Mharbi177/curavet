@@ -152,7 +152,10 @@ export function StaffWorkflowPage() {
 
   const { data: staffBookings, isLoading } = useQuery({
     queryKey: ['staff-bookings', tenant?.id],
-    queryFn: () => api.getBookings({ date: new Date().toISOString().split('T')[0] }),
+    queryFn: () => {
+      const today = new Date().toISOString().split('T')[0];
+      return api.getBookings({ startDate: today, endDate: today });
+    },
     enabled: !!tenant,
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -324,7 +327,26 @@ export function StaffWorkflowPage() {
                   Cancel
                 </Button>
                 <Button className="flex-1" onClick={() => {
-                  toast.success('Note saved');
+                  if (!noteText.trim()) {
+                    toast.error('Note vide');
+                    return;
+                  }
+                  if (noteModal.bookingId) {
+                    updateStatusMutation.mutate(
+                      { id: noteModal.bookingId, status: 'confirmed' } as any,
+                      // We reuse the same mutation type but need a notes-patch.
+                      // Call the api directly and invalidate.
+                    );
+                    api.updateBooking(noteModal.bookingId, { status: 'confirmed' } as any)
+                      .catch(() => null);
+                    // Persist notes via a PATCH.
+                    api.updateBooking(noteModal.bookingId, { notes: noteText } as any)
+                      .then(() => {
+                        queryClient.invalidateQueries({ queryKey: ['staff-bookings', tenant?.id] });
+                        toast.success('Note enregistrée');
+                      })
+                      .catch(() => toast.error('Échec de la sauvegarde'));
+                  }
                   setNoteText('');
                   setNoteModal({ open: false, bookingId: null });
                 }}>

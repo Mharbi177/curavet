@@ -1,5 +1,6 @@
 
 const TOKEN_KEY = 'curavet_token';
+const REFRESH_KEY = 'curavet_refresh_token';
 const TENANT_KEY = 'curavet_tenant';
 const USER_KEY   = 'curavet_user';
 
@@ -13,8 +14,18 @@ export function getAuthToken(): string | null {
 
 export function clearAuthToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_KEY);
   localStorage.removeItem(TENANT_KEY);
   localStorage.removeItem(USER_KEY);
+}
+
+/** Refresh token persistence for silent session renewal (15-min access TTL). */
+export function setRefreshToken(token: string): void {
+  localStorage.setItem(REFRESH_KEY, token);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_KEY);
 }
 
 export function isAuthenticated(): boolean {

@@ -44,9 +44,13 @@ export default async function instagramWebhookRoutes(fastify: FastifyInstance) {
 
   fastify.post(
     '/webhooks/instagram',
-    { config: { rateLimit: { max: 2000, timeWindow: '1 minute' } } },
+    { config: { rawBody: true, rateLimit: { max: 2000, timeWindow: '1 minute' } } },
     async (request, reply) => {
-      const rawBody = JSON.stringify(request.body ?? {});
+      // HMAC must be computed over the raw payload, never the re-serialized body.
+      const rawBody = request.rawBody ?? '';
+      if (!rawBody) {
+        return reply.status(400).send({ error: 'Request body is required' });
+      }
 
       if (!verifyMetaSignature(rawBody, request.headers['x-hub-signature-256'] as string | undefined)) {
         webhookEventsTotal.inc({ platform: 'instagram', outcome: 'invalid_signature' });

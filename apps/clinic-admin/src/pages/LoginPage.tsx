@@ -49,7 +49,7 @@ export function LoginPage() {
         window.location.href = `http://localhost:4001/dashboard?token=${encodeURIComponent(result.token)}`;
         return;
       }
-      navigate(role === 'staff' ? '/my-workflow' : '/dashboard', { replace: true });
+      navigate(role === 'receptionist' ? '/my-workflow' : '/dashboard', { replace: true });
     } catch (e: any) {
       setError(e.message || 'Invalid credentials');
     }

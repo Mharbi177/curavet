@@ -22,7 +22,9 @@ const EnvSchema = z.object({
     .string()
     .min(16, 'JWT_SECRET must be at least 16 characters')
     .default('curavet_super_jwt_secret_change_in_production_2026'),
-  JWT_TTL_SECONDS: z.string().default('604800'),
+  // Access tokens are short-lived (15 min); sessions survive via refresh tokens.
+  JWT_TTL_SECONDS: z.string().default('900'),
+  JWT_REFRESH_TTL_SECONDS: z.string().default('604800'),
   SUPERADMIN_EMAIL: z.string().default('admin@curavet.io'),
   SUPERADMIN_PASSWORD: z.string().default('admin123'),
 
@@ -45,6 +47,23 @@ const EnvSchema = z.object({
   META_APP_SECRET: z.string().optional(),
   WHATSAPP_TOKEN: z.string().optional(),
   INSTAGRAM_TOKEN: z.string().optional(),
+
+  // SMS
+  // Platform-level provider config. Per-tenant tokens can still override the
+  // Twilio auth token via encrypted TenantIntegration credentials.
+  //   provider=twilio -> requires TWILIO_ACCOUNT_SID + (TWILIO_AUTH_TOKEN or tenant token)
+  //   provider=http   -> generic Tunisian gateway JSON POST (SMS_HTTP_ENDPOINT)
+  //   provider=none   -> local dev / tests: sends nothing
+  SMS_PROVIDER: z.enum(['twilio', 'http', 'none']).default('none'),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM_NUMBER: z.string().optional(),
+  TWILIO_MESSAGING_SERVICE_SID: z.string().optional(),
+  SMS_HTTP_ENDPOINT: z.string().optional(),
+  SMS_HTTP_API_KEY: z.string().optional(),
+
+  // Email (SendGrid)
+  SENDGRID_API_KEY: z.string().optional(),
 
   // Queue / Redis
   //
@@ -123,6 +142,7 @@ export const env = {
   isTest: raw.NODE_ENV === 'test',
   port: Number.parseInt(raw.PORT, 10),
   jwtTtlSeconds: Number.parseInt(raw.JWT_TTL_SECONDS, 10),
+  jwtRefreshTtlSeconds: Number.parseInt(raw.JWT_REFRESH_TTL_SECONDS, 10),
   queueEnabled: bool(raw.QUEUE_ENABLED),
   otelEnabled: bool(raw.OTEL_ENABLED),
   docsEnabled: bool(raw.DOCS_ENABLED),
@@ -155,8 +175,19 @@ export function assertProductionSafety(): string[] {
   if (!env.STRIPE_SECRET_KEY) {
     warnings.push('STRIPE_SECRET_KEY is not set — WhatsApp payment links are DISABLED.');
   }
+  if (env.SMS_PROVIDER === 'twilio' && (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN)) {
+    warnings.push('SMS_PROVIDER=twilio but TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN are missing — SMS falls back to a no-op sink.');
+  }
+  if (env.SMS_PROVIDER === 'http' && !env.SMS_HTTP_ENDPOINT) {
+    warnings.push('SMS_PROVIDER=http but SMS_HTTP_ENDPOINT is missing — SMS falls back to a no-op sink.');
+  }
   if (!env.SENTRY_DSN) {
     warnings.push('SENTRY_DSN is not set — error reporting is DISABLED.');
+  }
+  if (env.jwtTtlSeconds > 3600) {
+    warnings.push(
+      `JWT_TTL_SECONDS=${env.jwtTtlSeconds} exceeds 1h — production access tokens should be short-lived (default 900s) with refresh rotation.`
+    );
   }
   if (!env.OTEL_ENABLED) {
     warnings.push('OTEL_ENABLED=false — distributed tracing is DISABLED.');

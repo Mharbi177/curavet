@@ -333,8 +333,8 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <div className="px-4 py-3 border-b border-border mb-1">
                     <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Account</p>
                     <p className="text-sm font-bold text-text-primary mt-1 truncate">{user?.name || tenant?.name || 'Clinic'}</p>
-                    {user?.role === 'staff' && (
-                      <span className="text-xs text-brand font-semibold">Staff Member</span>
+                    {user?.role === 'receptionist' && (
+                      <span className="text-xs text-brand font-semibold">Assistant(e) ASV</span>
                     )}
                   </div>
                   <Link

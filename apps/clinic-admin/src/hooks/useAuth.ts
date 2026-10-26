@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { setTenant, setAuthToken, clearAuthToken, isAuthenticated } from '../lib/auth';
+import { setTenant, setAuthToken, setRefreshToken, clearAuthToken, isAuthenticated } from '../lib/auth';
 
 interface Tenant {
   id: string;
@@ -10,6 +10,7 @@ interface Tenant {
   timezone: string;
   plan: string;
   isActive: boolean;
+  emergencyPhone?: string | null;
 }
 
 interface User {
@@ -17,6 +18,7 @@ interface User {
   email: string;
   role: string;
   tenantId?: string;
+  name?: string | null;
 }
 
 interface AuthState {
@@ -151,10 +153,11 @@ export function useAuth() {
       if (!response.ok) {
         throw new Error((body as { error?: string } | null)?.error || 'Invalid email or password');
       }
-      return body as { token: string; user: User; tenant: Tenant | null };
+      return body as { token: string; refreshToken?: string; user: User; tenant: Tenant | null };
     },
     onSuccess: async (data) => {
       setAuthToken(data.token);
+      if (data.refreshToken) setRefreshToken(data.refreshToken);
 
       // Salon admins get their tenant in the login response. Platform
       // super-admins have none, and resolving it must not fail the login.

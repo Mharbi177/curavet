@@ -38,7 +38,7 @@ async function main() {
     create: {
       email,
       passwordHash: hashPassword(password),
-      role: 'salon_admin',
+      role: 'doctor',
       name: 'Salon Admin',
       tenantId: tenant.id,
       isActive: true,

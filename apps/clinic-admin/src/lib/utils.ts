@@ -5,13 +5,33 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = 'AED'): string {
-  return new Intl.NumberFormat('en-AE', {
+/**
+ * TND trades in millimes (1 DT = 1000 millimes) — 3 fractional digits.
+ */
+const CURRENCY_FRACTION_DIGITS: Record<string, number> = {
+  TND: 3,
+  KWD: 3,
+  BHD: 3,
+  OMR: 3,
+};
+
+export function formatCurrency(amount: number, currency = 'TND'): string {
+  const digits = CURRENCY_FRACTION_DIGITS[currency] ?? 0;
+  return new Intl.NumberFormat(currency === 'TND' ? 'fr-TN' : 'en-AE', {
     style: 'currency',
     currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: digits,
   }).format(amount);
+}
+
+/**
+ * Millimes conversion for payment gateways that need smallest subunits.
+ * `amount * 1000` rounded to absorb float error (35.5 → 35500 millimes).
+ */
+export function toMillimes(amount: number, currency = 'TND'): number {
+  const scale = (CURRENCY_FRACTION_DIGITS[currency] ?? 2) === 3 ? 1000 : 100;
+  return Math.round(amount * scale);
 }
 
 /**

@@ -49,7 +49,7 @@ async function main() {
   );
 
   const salonToken = AuthService.signToken(
-    { sub: 'user-1', email: 'salon@demo.com', role: 'salon_admin', tenantId: 'tenant-DEMO' },
+    { sub: 'user-1', email: 'doctor@demo.com', role: 'doctor', tenantId: 'tenant-DEMO' },
     env.JWT_SECRET,
     600
   );

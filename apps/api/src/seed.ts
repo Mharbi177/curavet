@@ -39,7 +39,7 @@ async function main() {
       email: 'admin@curavet.io',
       name: 'Dr. Sarah Mitchell, DVM',
       passwordHash,
-      role: 'salon_admin',
+      role: 'doctor',
       tenantId: tenant.id,
     },
   });

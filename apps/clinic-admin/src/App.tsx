@@ -17,6 +17,7 @@ import { BroadcastPage } from './pages/BroadcastPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { StaffWorkflowPage } from './pages/StaffWorkflowPage';
+import { PetsPage } from './pages/PetsPage';
 import { useAuth } from './hooks/useAuth';
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
@@ -47,8 +48,8 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
     );
   }
 
-  const isStaff = user?.role === 'staff';
-  if (adminOnly && isStaff) return <Navigate to="/my-workflow" replace />;
+  const isReceptionist = user?.role === 'receptionist' || user?.role === 'client';
+  if (adminOnly && isReceptionist) return <Navigate to="/my-workflow" replace />;
 
   return <>{children}</>;
 }
@@ -72,7 +73,7 @@ function ClinicLayout() {
 
 function SmartRedirect() {
   const { user } = useAuth();
-  if (user?.role === 'staff') return <Navigate to="/my-workflow" replace />;
+  if (user?.role === 'receptionist' || user?.role === 'client') return <Navigate to="/my-workflow" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -93,7 +94,8 @@ export default function App() {
 
           {/* ── Admin / Clinic Owner routes ── */}
           <Route path="/dashboard" element={<ProtectedRoute adminOnly><AdminDashboardPage /></ProtectedRoute>} />
-          <Route path="/clients" element={<ProtectedRoute adminOnly><ClientsPage /></ProtectedRoute>} />
+          {/* Receptionist performs client intake, so /clients is open to all staff roles. */}
+          <Route path="/clients" element={<ProtectedRoute><ClientsPage /></ProtectedRoute>} />
           <Route path="/services" element={<ProtectedRoute adminOnly><ServicesPage /></ProtectedRoute>} />
           <Route path="/staff" element={<ProtectedRoute adminOnly><StaffPage /></ProtectedRoute>} />
           <Route path="/broadcast" element={<ProtectedRoute adminOnly><BroadcastPage /></ProtectedRoute>} />
@@ -107,6 +109,8 @@ export default function App() {
           <Route path="/conversations" element={<ProtectedRoute><ConversationsPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           <Route path="/workflow" element={<ProtectedRoute><StaffWorkflowPage /></ProtectedRoute>} />
+          {/* ── Patient Health Records — visible to all clinic staff ── */}
+          <Route path="/pets" element={<ProtectedRoute><PetsPage /></ProtectedRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

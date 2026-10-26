@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, Shield, Building2, Eye, EyeOff, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL, setAuthToken } from './api';
+import { API_BASE_URL, setAuthToken, setRefreshToken } from './api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -56,6 +56,7 @@ export default function LoginPage() {
       // 1. Super Admin Role
       if (role === 'super_admin') {
         setAuthToken(token);
+        if (data.refreshToken) setRefreshToken(data.refreshToken);
         localStorage.setItem('curavet_super_auth', 'true');
         localStorage.setItem('curavet_user_name', data.user.name || 'Super Admin');
         navigate('/dashboard');
@@ -63,13 +64,13 @@ export default function LoginPage() {
       }
 
       // 2. Clinic Owner / Admin Role -> Smart Route to Clinic Management
-      if (role === 'salon_admin') {
+      if (role === 'doctor') {
         window.location.href = `http://localhost:4002/dashboard?token=${encodeURIComponent(token)}`;
         return;
       }
 
       // 3. Doctor / Medical Staff Role -> Smart Route to Medical Workflow
-      if (role === 'staff') {
+      if (role === 'receptionist') {
         window.location.href = `http://localhost:4002/my-workflow?token=${encodeURIComponent(token)}`;
         return;
       }

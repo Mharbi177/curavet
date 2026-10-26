@@ -5,7 +5,17 @@
  * gives the page components real contextual types inside `.map()` callbacks.
  */
 
-export type LanguageCode = 'ar' | 'en' | 'fr' | 'ur' | 'tl';
+export type LanguageCode = 'ar' | 'en' | 'fr';
+
+export type UserRole = 'super_admin' | 'doctor' | 'receptionist' | 'client';
+
+export interface User {
+  id: string;
+  email: string;
+  role: UserRole;
+  tenantId?: string | null;
+  name?: string | null;
+}
 
 export interface Tenant {
   id: string;
@@ -13,6 +23,7 @@ export interface Tenant {
   slug: string;
   plan: string;
   timezone: string;
+  emergencyPhone?: string | null;
   isActive: boolean;
   brandName: string | null;
   logoUrl: string | null;
@@ -224,4 +235,61 @@ export interface AnalyticsSummary {
 export interface LanguageConfig {
   supported: LanguageCode[];
   default: string;
+}
+
+// ─── Veterinary clinical entities ─────────────────────────────────────────────
+
+export type PetGender = 'M' | 'F' | 'MN' | 'FS';
+
+export interface Pet {
+  id: string;
+  tenantId: string;
+  ownerId: string;
+  name: string;
+  species: string;
+  breed: string | null;
+  gender: PetGender | null;
+  dateOfBirth: string | null;
+  weightKg: number | null;
+  microchipNo: string | null;
+  tattooNo: string | null;
+  allergies: string | null;
+  medicalNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  owner: Pick<Client, 'id' | 'name' | 'phone'> & { email?: string | null };
+  medicalRecords?: MedicalRecord[];
+  vaccinations?: Vaccination[];
+  bookings?: Array<{
+    id: string;
+    scheduledAt: string;
+    status: string;
+    service: { nameEn: string; nameAr: string };
+  }>;
+}
+
+export interface MedicalRecord {
+  id: string;
+  petId: string;
+  doctorId: string;
+  bookingId: string | null;
+  visitDate: string;
+  symptoms: string;
+  diagnosis: string;
+  treatmentPlan: string;
+  weightAtVisit: number | null;
+  temperatureC: number | null;
+  createdAt: string;
+}
+
+export interface Vaccination {
+  id: string;
+  petId: string;
+  vaccineName: string;
+  diseaseTarget: string;
+  batchNumber: string;
+  administeredDate: string;
+  nextDueDate: string;
+  administeredById: string;
+  createdAt: string;
 }

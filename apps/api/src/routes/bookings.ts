@@ -49,6 +49,7 @@ const CreateBookingSchema = z.object({
   time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
   notes: z.string().max(2000).nullish(),
   price: z.number().min(0).nullish(),
+  petId: z.string().min(1).nullish(),
   status: z.enum(['pending', 'confirmed']).default('confirmed'),
 });
 
@@ -78,6 +79,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
         client: { select: { id: true, name: true, phone: true, languagePreference: true } },
         service: true,
         staff: { select: { id: true, name: true } },
+        pet: { select: { id: true, name: true, species: true, breed: true } },
         review: { select: { rating: true, comment: true } },
       },
       orderBy: { scheduledAt: 'asc' },
@@ -125,6 +127,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
         status: parsed.data.status,
         notes: parsed.data.notes ?? null,
         price: parsed.data.price ?? null,
+        petId: parsed.data.petId ?? null,
       });
 
       if (!result.ok) {
@@ -209,6 +212,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
           status: booking.status === 'pending' ? 'pending' : 'confirmed',
           notes: booking.notes,
           price: booking.price,
+          petId: booking.petId,
         });
 
         if (!recreate.ok) {

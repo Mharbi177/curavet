@@ -22,6 +22,7 @@ import whatsappWebhookRoutes from './webhooks/whatsapp';
 import instagramWebhookRoutes from './webhooks/instagram';
 import stripeWebhookRoutes from './webhooks/stripe';
 
+import fastifyRawBody from 'fastify-raw-body';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrfProtection from '@fastify/csrf-protection';
@@ -34,6 +35,17 @@ export function buildServer(): FastifyInstance {
     },
     bodyLimit: 2 * 1024 * 1024,
     trustProxy: true,
+  });
+
+  // Webhook HMAC signatures (Meta, Stripe) must be computed over the EXACT raw
+  // request bytes. Fastify's default JSON parser re-serializes the body, which
+  // changes key order/whitespace and breaks signature verification. This plugin
+  // stashes the original bytes on `request.rawBody` for routes that opt in via
+  // `config: { rawBody: true }`.
+  app.register(fastifyRawBody, {
+    field: 'rawBody',
+    global: false,
+    runFirst: true,
   });
 
   app.register(fastifyHelmet, {

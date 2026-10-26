@@ -39,7 +39,7 @@ if (-not $widgetKey) { $widgetKey = (Get "/api/tenants/$($tenant.id)" $root).web
 $salonEmail = 'salon@glamluxe.ae'
 $salonPass  = 'GlamLuxe!2026'
 try {
-  $u = Post '/api/users' @{ email = $salonEmail; password = $salonPass; name = 'Glam Luxe Owner'; role = 'salon_admin'; tenantId = $tenant.id } $root
+  $u = Post '/api/users' @{ email = $salonEmail; password = $salonPass; name = 'CuraVet Clinic Owner'; role = 'doctor'; tenantId = $tenant.id } $root
   Write-Output "SALON USER OK email=$($u.email)"
 } catch {
   Write-Output "SALON USER exists/failed: $($_.Exception.Message)"

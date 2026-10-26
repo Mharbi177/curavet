@@ -12,15 +12,20 @@ const CreateTenantSchema = z.object({
   timezone: z.string().min(3).default('Asia/Dubai'),
   plan: z.string().default('starter'),
   languageDefault: z.string().default('en'),
-  supportedLanguages: z.array(z.enum(['ar', 'en', 'fr', 'ur', 'tl'])).min(1).optional(),
+  supportedLanguages: z.array(z.enum(['ar', 'en', 'fr'])).min(1).optional(),
 });
 
-/** Platform super-admin surface: tenant lifecycle. */
+/**
+ * Tenant management routes.
+ *
+ * Auth guards are attached PER ROUTE, never at plugin level: a plugin-wide
+ * `preHandler` hook applies to every route in this file, and that previously
+ * blocked clinic users from reading their own tenant (`GET /api/tenants/:id`)
+ * with 403 because they are not platform super-admins.
+ */
 export default async function tenantAdminRoutes(fastify: FastifyInstance) {
-  fastify.addHook('preHandler', authenticate);
-  fastify.addHook('preHandler', requireSuperAdmin);
-
-  fastify.get('/api/tenants', async () => {
+  // Listing tenants is a pure platform-super-admin surface.
+  fastify.get('/api/tenants', { preHandler: [authenticate, requireSuperAdmin] }, async () => {
     const tenants = await prisma.tenant.findMany({
       include: {
         services: { select: { id: true } },
@@ -82,7 +87,10 @@ export default async function tenantAdminRoutes(fastify: FastifyInstance) {
 
   fastify.post(
     '/api/tenants',
-    { schema: { body: { type: 'object', required: ['name'], additionalProperties: true } } },
+    {
+      preHandler: [authenticate, requireSuperAdmin],
+      schema: { body: { type: 'object', required: ['name'], additionalProperties: true } },
+    },
     async (request, reply) => {
       const parsed = CreateTenantSchema.safeParse(request.body);
       if (!parsed.success) {
@@ -133,7 +141,7 @@ export default async function tenantAdminRoutes(fastify: FastifyInstance) {
           plan: z.string().optional(),
           isActive: z.boolean().optional(),
           languageDefault: z.string().optional(),
-          supportedLanguages: z.array(z.enum(['ar', 'en', 'fr', 'ur', 'tl'])).min(1).optional(),
+          supportedLanguages: z.array(z.enum(['ar', 'en', 'fr'])).min(1).optional(),
           aiProvider: z.enum(['auto', 'openai', 'groq']).optional(),
           aiModel: z.string().max(80).nullish(),
           aiTemperature: z.number().min(0).max(2).optional(),
@@ -174,9 +182,10 @@ export default async function tenantAdminRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // Suspending a tenant is a platform decision, not a client-side action.
   fastify.delete(
     '/api/tenants/:id',
-    { preHandler: [authenticate, requireTenantAccess] },
+    { preHandler: [authenticate, requireSuperAdmin] },
     async (request, reply) => {
       // Suspend rather than hard-delete so customer history is never destroyed.
       const tenant = await prisma.tenant.update({

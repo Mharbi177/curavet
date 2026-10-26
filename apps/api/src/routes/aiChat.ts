@@ -47,7 +47,7 @@ export default async function aiChatRoutes(fastify: FastifyInstance) {
       });
 
       if (!result) {
-        logger.warn({ tenantId, sessionId }, 'AI chat failed in dashboard');
+        logger.warn('AI chat failed in dashboard', { tenantId, sessionId });
         return reply.status(502).send({ error: 'The AI assistant is temporarily unavailable' });
       }
 

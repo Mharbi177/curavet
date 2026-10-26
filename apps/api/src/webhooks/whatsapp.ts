@@ -23,7 +23,7 @@ interface WhatsAppEvent {
  * `assertProductionSafety`.
  */
 export function verifyMetaSignature(
-  rawBody: string,
+  rawBody: string | Buffer,
   signature: string | undefined
 ): boolean {
   if (!env.META_APP_SECRET) return true;
@@ -56,12 +56,18 @@ export default async function whatsappWebhookRoutes(fastify: FastifyInstance) {
     '/webhooks/whatsapp',
     {
       config: {
+        // Preserve the exact raw bytes for X-Hub-Signature-256 verification.
+        rawBody: true,
         // Meta bursts deliveries; this limit exists only to stop abuse.
         rateLimit: { max: 2000, timeWindow: '1 minute' },
       },
     },
     async (request, reply) => {
-      const rawBody = JSON.stringify(request.body ?? {});
+      // HMAC must be computed over the raw payload, never the re-serialized body.
+      const rawBody = request.rawBody ?? '';
+      if (!rawBody) {
+        return reply.status(400).send({ error: 'Request body is required' });
+      }
 
       if (!verifyMetaSignature(rawBody, request.headers['x-hub-signature-256'] as string | undefined)) {
         webhookEventsTotal.inc({ platform: 'whatsapp', outcome: 'invalid_signature' });

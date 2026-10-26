@@ -5,12 +5,12 @@ import {
   CreditCard, Banknote, Receipt, Check, Loader2,
   Plus, Minus, AlertCircle, ArrowRight, Star,
 } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
-import { api } from '../lib/api';
-import { useCurrency } from '../hooks/useCurrency';
-import { cn } from '../lib/utils';
-import { Button } from '../components/ui/Button';
-import { Card, CardContent } from '../components/ui/Card';
+import { useAuth } from '../../hooks/useAuth';
+import { api } from '../../lib/api';
+import { useCurrency } from '../../hooks/useCurrency';
+import { cn } from '../../lib/utils';
+import { Button } from '../ui/Button';
+import { Card, CardContent } from '../ui/Card';
 import toast from 'react-hot-toast';
 
 type PaymentMethod = 'card' | 'cash' | 'other';

@@ -115,7 +115,7 @@ export default async function upsellRoutes(fastify: FastifyInstance) {
       const parsed = z
         .object({
           triggerServiceId: z.string().min(1),
-          language: z.enum(['ar', 'en', 'fr', 'ur', 'tl']).default('en'),
+          language: z.enum(['ar', 'en', 'fr']).default('fr'),
         })
         .safeParse(request.body);
 
