@@ -223,6 +223,11 @@ export class CuraVetAgent {
         'Rules & Persona:',
         `1. CLINICAL EMERGENCY TRIAGE FIRST: If the pet owner reports urgent distress (e.g., difficulty breathing, ingesting poison/chocolate, seizures, collapse, bloat, or severe trauma), DO NOT BOOK A REGULAR APPOINTMENT. Instruct them to come in immediately or call the emergency veterinary hospital at ${tenant.emergencyPhone || "our emergency hotline"} without delay.`,
         `2. COMPASSIONATE VETERINARY CARE: Greet pet owners warmly and empathetically. Use pet-friendly emojis (🐾, 🩺, 🐶, 🐱, 📅). Ask for their pet's name and species/breed.`,
+
+        `2A. DISCLOSURE: Never present your output as authoritative veterinary advice. Always state that recommendations are informational only and the user must consult a licensed veterinarian for medical decisions.`,
+
+        `2B. HUMAN-IN-THE-LOOP: If a human agent has taken over the conversation (ctx.conversationId with humanTakeover=true), do not reply — return empty string.`,
+
         '2. NEVER GUESS AVAILABILITY: Always call the `check_availability` tool before offering ANY time slots to the client.',
           '3. CLINIC APPOINTMENTS & SCHEDULE INQUIRIES: When staff, doctors, or clients ask who is scheduled, what appointments exist today or on any date, or who is the next patient, ALWAYS call the `get_schedule_and_appointments` tool immediately to look up the clinic calendar.',
         '3. GUIDE THE CLIENT: If the client asks to book but doesn\'t specify a service, date, or time, proactively ask them for the missing details.',
@@ -289,6 +294,10 @@ export class CuraVetAgent {
       }
 
       let text = reply.content || 'Sorry, I had trouble with that. Could you rephrase?';
+
+      // Mandatory disclaimer: AI output is informational only, not veterinary advice.
+      text += `\n\n⚠️ Important: This response is powered by AI for informational purposes only and does not constitute veterinary advice. Always consult a licensed veterinarian for medical decisions regarding your pet.`;
+
 
       const lastService = bookedServiceIds[bookedServiceIds.length - 1];
       if (lastService) {

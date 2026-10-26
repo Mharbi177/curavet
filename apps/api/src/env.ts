@@ -96,7 +96,7 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.string().default('info'),
 
   // Docs
-  DOCS_ENABLED: z.string().default('true'),
+  DOCS_ENABLED: z.string().default('false'),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

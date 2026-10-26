@@ -61,11 +61,11 @@ export function buildServer(): FastifyInstance {
     cookieOpts: { signed: true, httpOnly: true, sameSite: 'lax', secure: env.isProduction },
   });
 
-  app.register(cors, {
-    origin: true,
+app.register(cors, {
+    origin: ['https://api.curavet.com', 'https://clinic.curavet.com'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  });
+});
 
   app.register(rateLimit, {
     global: true,

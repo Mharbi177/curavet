@@ -234,7 +234,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       }
 
       const updated = await prisma.booking.update({
-        where: { id },
+        where: { id, tenantId },
         data: {
           ...(nextStatus ? { status: nextStatus } : {}),
           ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes } : {}),
